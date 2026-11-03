@@ -66,3 +66,58 @@ difference a conflict. With the common ancestor in hand, a region only one
 side touched takes that side's version, and only a region both sides changed
 *differently* conflicts — compared as a region, so a five-line rewrite is one
 conflict rather than five.
+
+## Install
+
+No dependencies, and nothing to build.
+
+```sh
+git clone https://github.com/Mohammed-Abdul-Raqueeb/mend.git
+cd mend
+npm test
+```
+
+Node 20 or newer.
+
+## The command line
+
+```sh
+$ mend diff old.txt new.txt
+--- old.txt
++++ new.txt
+@@ -1,3 +1,3 @@
+ one
+-two
++TWO
+ three
+
+$ mend diff old.txt new.txt -o change.patch
+$ mend apply old.txt change.patch
+Hunk #1 applied at 1
+
+$ mend show change.patch
+old.txt -> new.txt
+  +1 -1 in 1 hunk
+  @@ -1,3 +1,3 @@  2 changed
+1 file
+
+$ mend merge base.txt ours.txt theirs.txt
+one
+<<<<<<< ours.txt
+OURS
+=======
+THEIRS
+>>>>>>> theirs.txt
+three
+
+$ mend stat old.txt new.txt
+new.txt | 2 +-
+similarity 66.7%
+```
+
+Exit codes follow `diff`, which is older than the convention it breaks: **0**
+means no differences, **1** means there were differences, and **2** means the
+tool could not do its job. A script that treats 1 as failure is wrong about
+`diff` too.
+
+`mend --help` lists every flag.
