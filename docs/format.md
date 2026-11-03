@@ -129,3 +129,36 @@ parsing as itself because it means something.
 The `index` line carries blob hashes, which this library does not compute. It
 is read and ignored, and never written: a wrong hash is worse than an absent
 one.
+
+## Context diffs
+
+The older format, still readable by `patch`, and easier on the eye when a
+hunk replaces most of its lines — each side appears in full rather than
+interleaved, so each can be read as text:
+
+```
+*** old.txt
+--- new.txt
+***************
+*** 1,3 ****
+  one
+- two
+  three
+--- 1,3 ----
+  one
++ TWO
+  three
+```
+
+Note that its hunk ranges are **first and last line**, where a unified diff's
+are **start and count**. Written by `formatContext`, not parsed.
+
+## What this library does not do
+
+- **Binary diffs.** The format has a git-specific binary extension; this
+  works on text.
+- **File modes, renames and copies.** A patch can carry `old mode`, `rename
+  from` and similar; those lines are skipped rather than acted on.
+  `isRename` is offered separately, as a similarity test the caller applies
+  itself.
+- **Writing an `index` line**, for the reason above.
