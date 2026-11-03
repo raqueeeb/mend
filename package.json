@@ -1,14 +1,45 @@
 {
   "name": "mend-diff",
   "version": "0.1.0",
-  "description": "A diff and patch engine with no dependencies.",
+  "description": "A diff and patch engine with no dependencies: Myers diff, unified patches, fuzzy apply and three-way merge.",
   "type": "module",
   "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "bin": {
+    "mend": "bin/mend.js"
+  },
   "engines": {
     "node": ">=20"
   },
+  "files": [
+    "src",
+    "bin",
+    "docs",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "scripts": {
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "lint": "node tools/lint.js",
+    "bench": "node bench/run.js",
+    "check": "npm run lint && npm test"
   },
-  "license": "MIT"
+  "keywords": [
+    "diff",
+    "patch",
+    "myers",
+    "unified-diff",
+    "three-way-merge",
+    "merge",
+    "text-diff",
+    "zero-dependencies"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mohammed-Abdul-Raqueeb/mend.git"
+  }
 }
