@@ -138,3 +138,52 @@ test('whitespace can be ignored, and the output keeps the original text', () => 
   assert.ok(diffText(before, after, { ignoreWhitespace: true }).isEmpty);
   assert.ok(!diffText(before, after).isEmpty);
 });
+
+test('case can be ignored', () => {
+  assert.ok(diffText(L('Hello'), L('HELLO'), { ignoreCase: true }).isEmpty);
+  assert.ok(!diffText(L('Hello'), L('HELLO')).isEmpty);
+});
+
+test('ignoring whitespace shows the old text for an unchanged line', () => {
+  // The line compared equal through a folded key; what is shown is what was
+  // there, which is the first file's version.
+  const diff = diffText(L('a  b', 'x'), L('a b', 'y'), { ignoreWhitespace: true });
+  const context = diff.hunks[0].changes.find((change) => change.operation === Operation.EQUAL);
+  assert.equal(context.text, 'a  b');
+});
+
+test('every change carries its line number on the sides it exists on', () => {
+  const diff = diffText(L('a', 'b', 'c'), L('a', 'B', 'c'));
+  const [first, removed, added, last] = diff.hunks[0].changes;
+
+  assert.deepEqual([first.oldLine, first.newLine], [1, 1]);
+  assert.deepEqual([removed.oldLine, removed.newLine], [2, null]);
+  assert.deepEqual([added.oldLine, added.newLine], [null, 2]);
+  assert.deepEqual([last.oldLine, last.newLine], [3, 3]);
+});
+
+test('a hunk counts its changed lines separately from its context', () => {
+  const diff = diffText(L('a', 'b', 'c'), L('a', 'B', 'c'));
+  assert.equal(diff.hunks[0].changedLines, 2);
+  assert.equal(diff.hunks[0].changes.length, 4);
+});
+
+test('a hunk and a diff are frozen', () => {
+  const diff = diffText(L('a'), L('b'));
+  assert.throws(() => { diff.hunks = []; }, TypeError);
+  assert.throws(() => { diff.hunks[0].oldStart = 9; }, TypeError);
+});
+
+test('a hunk describes itself as its header', () => {
+  assert.equal(String(diffText(L('a'), L('b')).hunks[0]), '@@ -1 +1 @@');
+});
+
+test('a large file with one change is minimal and cheap', () => {
+  const before = L(...Array.from({ length: 5000 }, (_, index) => `line ${index}`));
+  const after = before.replace('line 2500', 'changed');
+
+  const diff = diffText(before, after);
+  assert.ok(diff.minimal);
+  assert.equal(diff.distance, 2);
+  assert.equal(diff.hunks.length, 1);
+});
