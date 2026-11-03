@@ -92,3 +92,66 @@ export class ApplyResult {
     return this.hunks.map((hunk) => hunk.describe()).join('\n');
   }
 }
+
+/**
+ * Applies a diff to text.
+ *
+ * @param {string} text the text to patch
+ * @param {object} diff the diff, parsed or produced
+ * @param {object} [options] how hard to try
+ * @param {number} [options.fuzz] how many context lines may be dropped
+ * @param {number} [options.search] how far to look for each hunk
+ * @param {boolean} [options.partial] keep the hunks that did apply
+ * @returns {ApplyResult} the outcome, with the patched text when it worked
+ * @throws {UsageError} when an argument is the wrong type
+ */
+export function applyPatch(text, diff, options = {}) {
+  requireText(text, 'text');
+  if (!diff || !Array.isArray(diff.hunks)) {
+    throw new UsageError('applyPatch needs a diff with hunks');
+  }
+
+  const fuzz = options.fuzz ?? DEFAULT_FUZZ;
+  const search = options.search ?? DEFAULT_SEARCH;
+  const partial = options.partial ?? false;
+
+  const crlf = usesCrlf(text);
+  const trailing = text === '' ? diff.newEndsWithNewline : endsWithNewline(text);
+
+  let current = splitLines(text);
+  const results = [];
+  // Each applied hunk shifts the lines after it, so the next hunk's stated
+  // position has to be adjusted by everything already applied.
+  let drift = 0;
+  let failed = false;
+
+  diff.hunks.forEach((hunk, index) => {
+    const outcome = applyHunk(current, hunk, { fuzz, search, drift });
+
+    if (!outcome.applied) {
+      failed = true;
+      results.push(new HunkResult({ index, applied: false, reason: outcome.reason }));
+      return;
+    }
+
+    current = outcome.lines;
+    drift += outcome.added - outcome.removed;
+
+    results.push(new HunkResult({
+      index,
+      applied: true,
+      line: outcome.at + 1,
+      offset: outcome.offset,
+      fuzz: outcome.fuzz,
+    }));
+  });
+
+  const ok = !failed;
+  const keep = ok || partial;
+
+  return new ApplyResult({
+    ok,
+    text: keep ? join(current, endsWith(diff, trailing), crlf) : text,
+    hunks: results,
+  });
+}
