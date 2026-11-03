@@ -232,3 +232,63 @@ function flatten(edits) {
 
   return out;
 }
+
+/**
+ * Groups changes into hunks with the given amount of context.
+ *
+ * @param {object[]} changes one entry per line
+ * @param {number} context how many unchanged lines to keep either side
+ * @returns {Hunk[]} the hunks
+ */
+function group(changes, context) {
+  const changed = changes
+    .map((change, index) => (change.operation === Operation.EQUAL ? -1 : index))
+    .filter((index) => index !== -1);
+
+  if (changed.length === 0) return [];
+
+  // Walk the changed positions, starting a new hunk whenever the gap from
+  // the previous one is too wide for their contexts to touch.
+  const groups = [[changed[0]]];
+  for (const index of changed.slice(1)) {
+    const previous = groups[groups.length - 1];
+    const gap = index - previous[previous.length - 1] - 1;
+    if (gap > context * 2) groups.push([index]);
+    else previous.push(index);
+  }
+
+  return groups.map((positions) => {
+    const first = Math.max(0, positions[0] - context);
+    const last = Math.min(changes.length - 1, positions[positions.length - 1] + context);
+    const slice = changes.slice(first, last + 1);
+
+    const oldCount = slice.filter((change) => change.operation !== Operation.INSERT).length;
+    const newCount = slice.filter((change) => change.operation !== Operation.DELETE).length;
+
+    return new Hunk({
+      oldStart: startOf(slice, 'oldLine', oldCount),
+      oldLines: oldCount,
+      newStart: startOf(slice, 'newLine', newCount),
+      newLines: newCount,
+      changes: slice,
+    });
+  });
+}
+
+/**
+ * The first line number on one side of a hunk.
+ *
+ * A hunk that only inserts has no old line of its own, and the convention is
+ * to name the line it follows -- which is zero when it is at the very start
+ * of the file.
+ *
+ * @param {object[]} slice the hunk's lines
+ * @param {string} field either `oldLine` or `newLine`
+ * @param {number} count how many lines this side has
+ * @returns {number} the one-based start, or 0 for an empty side
+ */
+function startOf(slice, field, count) {
+  if (count === 0) return 0;
+  const found = slice.find((change) => change[field] !== null);
+  return found ? found[field] : 0;
+}
