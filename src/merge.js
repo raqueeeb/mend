@@ -26,3 +26,18 @@ export const MARKERS = {
   theirs: '>>>>>>>',
   divider: '=======',
 };
+
+/** One region of a merge: agreed text, or a conflict. */
+export class Region {
+  /**
+   * @param {object} fields the region
+   */
+  constructor(fields) {
+    this.conflict = fields.conflict;
+    this.lines = fields.lines ?? [];
+    this.ours = fields.ours ?? [];
+    this.base = fields.base ?? [];
+    this.theirs = fields.theirs ?? [];
+    Object.freeze(this);
+  }
+}
