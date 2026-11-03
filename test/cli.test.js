@@ -109,3 +109,47 @@ test('diff can ignore whitespace and case', () => {
   assert.equal(run(['diff', 'a.txt', 'b.txt'], files).code, Exit.DIFFERENT);
   assert.equal(run(['diff', 'a.txt', 'b.txt', '-w', '-i'], files).code, Exit.SAME);
 });
+
+test('diff can write a git-style header', () => {
+  const result = run(['diff', 'old.txt', 'new.txt', '--git'], FILES);
+  assert.match(result.out, /^diff --git a\/old\.txt b\/new\.txt$/m);
+});
+
+test('diff can write an old-style context diff', () => {
+  const result = run(['diff', 'old.txt', 'new.txt', '--context-format'], FILES);
+  assert.match(result.out, /^\*{15}$/m);
+  assert.match(result.out, /^- two$/m);
+});
+
+test('diff can send its output to a file', () => {
+  const result = run(['diff', 'old.txt', 'new.txt', '-o', 'out.patch'], FILES);
+  assert.equal(result.out, '');
+  assert.match(result.written['out.patch'], /^@@ -1,3 \+1,3 @@$/m);
+  assert.ok(result.written['out.patch'].endsWith('\n'), 'a patch file ends with a newline');
+});
+
+test('diff --inline adds a word-level view after the patch', () => {
+  // After, not woven in: a patch with extra lines in it is no longer a patch
+  // that applies.
+  const files = {
+    'a.txt': L('the quick brown fox'),
+    'b.txt': L('the slow brown fox'),
+  };
+  const result = run(['diff', 'a.txt', 'b.txt', '--inline'], files);
+
+  assert.match(result.out, /# word-level view/);
+  assert.match(result.out, /-the \[quick\] brown fox/);
+  assert.match(result.out, /\+the \[slow\] brown fox/);
+});
+
+test('diff needs exactly two files', () => {
+  assert.match(run(['diff', 'old.txt'], FILES).err, /two files/);
+  assert.equal(run(['diff', 'old.txt'], FILES).code, Exit.TROUBLE);
+  assert.equal(run(['diff', 'a', 'b', 'c'], FILES).code, Exit.TROUBLE);
+});
+
+test('a file that is not there is reported, not thrown', () => {
+  const result = run(['diff', 'missing.txt', 'new.txt'], FILES);
+  assert.equal(result.code, Exit.TROUBLE);
+  assert.match(result.err, /cannot read missing\.txt/);
+});
