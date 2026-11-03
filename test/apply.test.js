@@ -180,3 +180,41 @@ test('an insertion at the very end applies', () => {
   const after = L('a', 'b', 'c');
   assert.equal(applyPatch(before, patchFor(before, after)).text, after);
 });
+
+test('the patched file keeps the newline the patch says it should have', () => {
+  // The patch knows what the new file looked like, so it wins; the original
+  // only decides when the patch says nothing.
+  const withNewline = applyPatch(N('a', 'b'), patchFor(N('a', 'b'), L('a', 'B')));
+  assert.equal(withNewline.text, L('a', 'B'));
+
+  const without = applyPatch(L('a', 'b'), patchFor(L('a', 'b'), N('a', 'B')));
+  assert.equal(without.text, N('a', 'B'));
+});
+
+test('CRLF input stays CRLF after patching', () => {
+  const result = applyPatch('a\r\nb\r\n', patchFor(L('a', 'b'), L('a', 'B')));
+  assert.ok(result.ok);
+  assert.equal(result.text, 'a\r\nB\r\n');
+});
+
+test('the result counts what applied and what did not', () => {
+  const before = L('one', 'two');
+  const result = applyPatch(before, patchFor(before, L('one', 'TWO')));
+  assert.equal(result.appliedCount, 1);
+  assert.equal(result.failedCount, 0);
+});
+
+test('an apply result is frozen', () => {
+  const before = L('a');
+  const result = applyPatch(before, patchFor(before, L('b')));
+  assert.throws(() => { result.ok = false; }, TypeError);
+  assert.throws(() => { result.hunks[0].line = 99; }, TypeError);
+});
+
+test('canApply answers without producing the result', () => {
+  const before = L('one', 'two');
+  const diff = patchFor(before, L('one', 'TWO'));
+
+  assert.ok(canApply(before, diff));
+  assert.ok(!canApply(L('x', 'y'), diff));
+});
