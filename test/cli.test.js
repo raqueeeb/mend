@@ -206,3 +206,42 @@ test('a hunk that does not apply goes to standard error and exits one', () => {
   assert.match(result.err, /Hunk #1 failed/);
   assert.deepEqual(result.written, {}, 'and nothing is written');
 });
+
+test('apply reports a patch it cannot read', () => {
+  const result = run(['apply', 'old.txt', 'p.patch'], {
+    ...FILES,
+    'p.patch': '--- a\n+++ b\n@@ -1,9 +1,9 @@\n one\n',
+  });
+
+  assert.equal(result.code, Exit.TROUBLE);
+  assert.match(result.err, /hunk header says 9 old/);
+});
+
+test('apply refuses a patch with no hunks', () => {
+  const result = run(['apply', 'old.txt', 'p.patch'], { ...FILES, 'p.patch': 'just prose\n' });
+  assert.equal(result.code, Exit.TROUBLE);
+  assert.match(result.err, /no hunks/);
+});
+
+test('apply refuses a multi-file patch', () => {
+  const patch = `${run(['diff', 'old.txt', 'new.txt', '--git'], FILES).out}\n`;
+  const result = run(['apply', 'old.txt', 'p.patch'], {
+    ...FILES, 'p.patch': patch + patch.replace(/old\.txt/g, 'z.txt'),
+  });
+
+  assert.equal(result.code, Exit.TROUBLE);
+  assert.match(result.err, /describes 2 files/);
+});
+
+// ---- show ---------------------------------------------------------------
+
+test('show summarises a patch', () => {
+  const patch = `${run(['diff', 'old.txt', 'new.txt'], FILES).out}\n`;
+  const result = run(['show', 'p.patch'], { 'p.patch': patch });
+
+  assert.equal(result.code, Exit.DIFFERENT);
+  assert.match(result.out, /old\.txt -> new\.txt/);
+  assert.match(result.out, /\+1 -1 in 1 hunk/);
+  assert.match(result.out, /@@ -1,3 \+1,3 @@  2 changed/);
+  assert.match(result.out, /1 file$/);
+});
