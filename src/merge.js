@@ -226,3 +226,22 @@ function changeMap(base, side) {
 
   return changes;
 }
+
+/**
+ * What one side has in place of a span of base lines.
+ *
+ * @param {Map<number, object>} changes that side's changes
+ * @param {number} at the first base line of the span
+ * @param {number} span how many base lines the span covers
+ * @param {string[]} base the ancestor's lines
+ * @returns {string[]} that side's lines for the span
+ */
+function sideText(changes, at, span, base) {
+  const edit = changes.get(at);
+  if (!edit) return base.slice(at, at + span);
+
+  // This side's replacement, plus any base lines inside the span that it did
+  // not touch.
+  const untouched = base.slice(at + edit.length, at + span);
+  return [...edit.lines, ...untouched];
+}
