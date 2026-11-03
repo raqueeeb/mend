@@ -44,3 +44,49 @@ export function lines(text) {
   // carriage return comes off here and is restored when text is rebuilt.
   return split.map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line));
 }
+
+/**
+ * Whether text ends with a newline.
+ *
+ * Empty text does not, which keeps `join(lines(''), false) === ''`.
+ *
+ * @param {string} text the text
+ * @returns {boolean} true when the last character is a newline
+ */
+export function endsWithNewline(text) {
+  requireText(text, 'text');
+  return text.length > 0 && text.endsWith('\n');
+}
+
+/**
+ * Whether text uses CRLF line endings.
+ *
+ * Decided by the first line ending found, because a file with mixed endings
+ * has a bigger problem than this function can solve.
+ *
+ * @param {string} text the text
+ * @returns {boolean} true when the first newline is preceded by a return
+ */
+export function usesCrlf(text) {
+  requireText(text, 'text');
+  const at = text.indexOf('\n');
+  return at > 0 && text[at - 1] === '\r';
+}
+
+/**
+ * Rebuilds text from lines.
+ *
+ * The inverse of {@link lines}, given the same two facts about the original.
+ *
+ * @param {string[]} input the lines, without endings
+ * @param {boolean} [trailing] whether to end with a newline
+ * @param {boolean} [crlf] whether to use CRLF endings
+ * @returns {string} the text
+ */
+export function join(input, trailing = true, crlf = false) {
+  if (!Array.isArray(input)) throw new UsageError('lines must be an array');
+  if (input.length === 0) return '';
+
+  const ending = crlf ? '\r\n' : '\n';
+  return input.join(ending) + (trailing ? ending : '');
+}
