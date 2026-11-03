@@ -91,3 +91,70 @@ function range(start, count) {
   // reads as `-0,0` only when the file was empty.
   return count === 1 ? String(start) : `${start},${count}`;
 }
+
+/**
+ * The result of diffing two texts.
+ *
+ * Carries the facts the patch format needs and that are easy to lose: how
+ * each side ended, and whether the algorithm found a minimal answer.
+ */
+export class Diff {
+  /**
+   * @param {object} fields the diff's parts
+   */
+  constructor(fields) {
+    this.hunks = fields.hunks;
+    this.oldPath = fields.oldPath;
+    this.newPath = fields.newPath;
+    this.oldEndsWithNewline = fields.oldEndsWithNewline;
+    this.newEndsWithNewline = fields.newEndsWithNewline;
+    // How many lines each side has in total. Only the no-newline marker
+    // needs them, and it needs them badly: the marker belongs after the last
+    // line of a file, and a hunk cannot tell on its own whether it reaches
+    // that far.
+    this.oldTotal = fields.oldTotal;
+    this.newTotal = fields.newTotal;
+    this.crlf = fields.crlf;
+    this.minimal = fields.minimal;
+    this.distance = fields.distance;
+    Object.freeze(this);
+  }
+
+  /** Whether the two texts were the same. */
+  get isEmpty() {
+    return this.hunks.length === 0;
+  }
+
+  /** How many lines were added. */
+  get added() {
+    return this.count(Operation.INSERT);
+  }
+
+  /** How many lines were removed. */
+  get removed() {
+    return this.count(Operation.DELETE);
+  }
+
+  /**
+   * How many lines carry a given operation.
+   *
+   * @param {string} operation one of {@link Operation}
+   * @returns {number} the count
+   */
+  count(operation) {
+    return this.hunks.reduce(
+      (total, hunk) => total + hunk.changes.filter((c) => c.operation === operation).length,
+      0,
+    );
+  }
+
+  /** A one-line summary, as a commit message footer might show it. */
+  get summary() {
+    if (this.isEmpty) return 'no changes';
+    const parts = [];
+    if (this.added > 0) parts.push(`+${this.added}`);
+    if (this.removed > 0) parts.push(`-${this.removed}`);
+    const where = this.hunks.length === 1 ? '1 hunk' : `${this.hunks.length} hunks`;
+    return `${parts.join(' ')} in ${where}`;
+  }
+}
