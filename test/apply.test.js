@@ -97,3 +97,66 @@ test('fuzz never eats the lines the hunk changes', () => {
 test('fuzz is off far enough by default to be safe', () => {
   assert.equal(DEFAULT_FUZZ, 2);
 });
+
+test('a patch that does not match is a result, not an exception', () => {
+  // A patch that does not apply is an ordinary outcome, and the caller needs
+  // the details rather than a stack trace.
+  const diff = patchFor(L('one', 'two', 'three'), L('one', 'TWO', 'three'));
+  const result = applyPatch(L('nothing', 'like', 'it'), diff);
+
+  assert.equal(result.ok, false);
+  assert.equal(result.failedCount, 1);
+  assert.match(result.hunks[0].describe(), /^Hunk #1 failed: /);
+  assert.match(result.hunks[0].reason, /expected "one" at or near line 1/);
+});
+
+test('a failed apply leaves the text untouched', () => {
+  const original = L('nothing', 'like', 'it');
+  const diff = patchFor(L('one', 'two'), L('one', 'TWO'));
+
+  assert.equal(applyPatch(original, diff).text, original);
+});
+
+test('a partially applicable patch can keep what worked', () => {
+  // Off by default, because a half-patched file is usually worse than an
+  // unpatched one -- but `patch` offers it and sometimes it is what you want.
+  const before = L(...Array.from({ length: 40 }, (_, index) => `line ${index}`));
+  const lines = before.split('\n');
+  lines[2] = 'first change';
+  lines[30] = 'second change';
+  const diff = patchFor(before, lines.join('\n'));
+
+  const broken = before.split('\n');
+  broken[30] = 'someone else got here first';
+
+  const strict = applyPatch(broken.join('\n'), diff, { fuzz: 0 });
+  assert.ok(!strict.ok);
+  assert.equal(strict.text, broken.join('\n'), 'nothing applied by default');
+
+  const partial = applyPatch(broken.join('\n'), diff, { fuzz: 0, partial: true });
+  assert.ok(!partial.ok);
+  assert.equal(partial.appliedCount, 1);
+  assert.ok(partial.text.includes('first change'));
+});
+
+test('several hunks all apply, each adjusted for the ones before it', () => {
+  // Each applied hunk shifts the lines after it, so the next hunk's stated
+  // position has to be corrected by everything already applied.
+  const before = L(...Array.from({ length: 40 }, (_, index) => `line ${index}`));
+  const lines = before.split('\n');
+  lines.splice(2, 1, 'a', 'b', 'c');
+  lines[32] = 'changed';
+  const after = lines.join('\n');
+
+  const result = applyPatch(before, patchFor(before, after));
+  assert.ok(result.ok, result.describe());
+  assert.equal(result.text, after);
+});
+
+test('a reversed patch undoes itself', () => {
+  const before = L('one', 'two', 'three');
+  const after = L('one', 'TWO', 'three');
+  const diff = patchFor(before, after);
+
+  assert.equal(applyPatch(after, reverse(diff)).text, before);
+});
