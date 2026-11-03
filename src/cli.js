@@ -206,3 +206,55 @@ function expect(options, count, shape) {
     throw new UsageError(`${options.command} takes ${shape}`);
   }
 }
+
+function runDiff({ out, read, write, options }) {
+  expect(options, 2, 'two files: an old one and a new one');
+  const [oldPath, newPath] = options.files;
+
+  const diff = diffText(read(oldPath), read(newPath), {
+    context: options.context,
+    oldPath,
+    newPath,
+    ignoreWhitespace: options.ignoreWhitespace,
+    ignoreCase: options.ignoreCase,
+  });
+
+  if (diff.isEmpty) return Exit.SAME;
+
+  let text;
+  if (options.contextFormat) text = formatContext(diff);
+  else if (options.git) text = formatGitStyle(diff);
+  else text = formatUnified(diff);
+
+  if (options.inline) text = annotate(diff, text);
+
+  if (options.output) write(options.output, text);
+  else out(text.replace(/\n$/, ''));
+
+  return Exit.DIFFERENT;
+}
+
+/**
+ * Appends a word-level view of each changed pair in the diff.
+ *
+ * Appended rather than woven into the patch, because a patch with extra
+ * lines in it is no longer a patch that applies.
+ *
+ * @param {object} diff the diff
+ * @param {string} text the formatted patch
+ * @returns {string} the patch with the inline view after it
+ */
+function annotate(diff, text) {
+  const notes = [];
+
+  for (const hunk of diff.hunks) {
+    for (const pair of pairChanges(hunk)) {
+      const marked = markInline(pair.before, pair.after);
+      notes.push(`-${marked.before}`);
+      notes.push(`+${marked.after}`);
+    }
+  }
+
+  if (notes.length === 0) return text;
+  return `${text}\n# word-level view\n${notes.join('\n')}\n`;
+}
