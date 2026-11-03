@@ -41,3 +41,15 @@ export function similarity(before, after, options = {}) {
 
   return (2 * commonLength(left, right)) / total;
 }
+
+/**
+ * Whether two texts are similar enough to be the same file, edited.
+ *
+ * @param {string} before the first text
+ * @param {string} after the second text
+ * @param {number} [threshold] how similar they must be
+ * @returns {boolean} true when the ratio meets the threshold
+ */
+export function isRename(before, after, threshold = 0.5) {
+  return similarity(before, after) >= threshold;
+}
