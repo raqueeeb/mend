@@ -139,3 +139,64 @@ Hunk #3 failed: expected "one" at or near line 60, found "something else"
 `canApply(text, diff, options?)` answers without producing the result.
 
 ## Merging
+
+### `merge(base, ours, theirs, options?)`
+
+| option | default | meaning |
+| --- | --- | --- |
+| `ourLabel`, `theirLabel` | `'ours'`, `'theirs'` | names in the markers |
+| `diff3` | `false` | include the base inside a conflict |
+
+Returns a `MergeResult` with `text`, `regions`, `clean` and
+`conflictCount`. `mergeLines(base, ours, theirs)` returns the regions alone,
+for a caller that wants to present conflicts its own way: each is either
+`{ conflict: false, lines }` or `{ conflict: true, ours, base, theirs }`.
+
+`hasConflictMarkers(text)` is a commit-time check — a file with markers in it
+is a file nobody finished merging.
+
+## Similarity and inline diffs
+
+| function | what it does |
+| --- | --- |
+| `similarity(before, after, options?)` | a ratio from 0 to 1 |
+| `isRename(before, after, threshold?)` | whether it is the same file, edited |
+| `inlineDiff(before, after)` | word runs for two single lines |
+| `markInline(before, after, options?)` | the two lines with changes marked |
+| `pairChanges(hunk)` | removed lines paired with the added ones |
+
+```js
+markInline('the quick brown fox', 'the slow brown fox');
+// { before: 'the [quick] brown fox', after: 'the [slow] brown fox' }
+```
+
+Each side is marked with **only its own** changes. Showing both sets on both
+lines is a common mistake and makes each line unreadable as a line.
+
+`pairChanges` pairs positionally and only where the counts match: guessing
+which of five removed lines became which of two added ones produces worse
+output than not guessing.
+
+## Tokenizing
+
+| function | what it does |
+| --- | --- |
+| `lines(text)` | lines, without endings; a trailing newline adds no empty line |
+| `words(text)` | words *and* the whitespace between them, as separate tokens |
+| `characters(text)` | by code point, so an emoji is one token |
+| `split(text, granularity)` | dispatches on `Granularity` |
+| `join(lines, trailing?, crlf?)` | the inverse of `lines` |
+| `endsWithNewline(text)`, `usesCrlf(text)` | the two facts worth keeping |
+
+```js
+join(lines(text), endsWithNewline(text)) === text   // for any text
+```
+
+## Errors
+
+`ParseError` is thrown for a patch that cannot be read; it carries `line`,
+`text` and a `format()` that shows the offending line. `UsageError` is thrown
+for a caller mistake — the wrong type, an impossible option. Both extend
+`MendError`, so one `catch` covers the library.
+
+A patch that does not *apply* throws nothing: see `ApplyResult`.
