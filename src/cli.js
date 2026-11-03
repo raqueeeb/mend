@@ -258,3 +258,39 @@ function annotate(diff, text) {
   if (notes.length === 0) return text;
   return `${text}\n# word-level view\n${notes.join('\n')}\n`;
 }
+
+function runApply({ out, err, read, write, options }) {
+  expect(options, 2, 'two files: the file to patch and the patch');
+  const [target, patchPath] = options.files;
+
+  const text = read(target);
+  const diffs = parsePatch(read(patchPath));
+
+  if (diffs.length === 0) {
+    err('the patch contains no hunks');
+    return Exit.TROUBLE;
+  }
+  if (diffs.length > 1) {
+    err(`the patch describes ${diffs.length} files; apply takes a single-file patch`);
+    return Exit.TROUBLE;
+  }
+
+  const diff = options.reverse ? reverse(diffs[0]) : diffs[0];
+  const result = applyPatch(text, diff, { fuzz: options.fuzz });
+
+  for (const hunk of result.hunks) {
+    const line = hunk.describe();
+    if (hunk.applied) out(line);
+    else err(line);
+  }
+
+  if (!result.ok) return Exit.DIFFERENT;
+
+  if (options.dryRun) {
+    out(`would write ${target}`);
+    return Exit.SAME;
+  }
+
+  write(options.output ?? target, result.text);
+  return Exit.SAME;
+}
