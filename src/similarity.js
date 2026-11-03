@@ -113,3 +113,48 @@ export function markInline(before, after, options = {}) {
 
   return { before: left.join(''), after: right.join('') };
 }
+
+/**
+ * Pairs up the removed and added lines of a hunk.
+ *
+ * A hunk that replaces three lines with three lines is usually three edited
+ * lines rather than three deletions and three insertions, and pairing them
+ * lets each pair be shown as an inline diff. Pairing is positional and only
+ * where the counts are equal: guessing which of five removed lines became
+ * which of two added ones produces worse output than not guessing.
+ *
+ * @param {object} hunk the hunk
+ * @returns {object[]} the pairs, each with a `before` and an `after` line
+ */
+export function pairChanges(hunk) {
+  const pairs = [];
+  const changes = hunk.changes ?? [];
+
+  let at = 0;
+  while (at < changes.length) {
+    if (changes[at].operation !== Operation.DELETE) {
+      at++;
+      continue;
+    }
+
+    const removed = [];
+    while (at < changes.length && changes[at].operation === Operation.DELETE) {
+      removed.push(changes[at]);
+      at++;
+    }
+
+    const added = [];
+    while (at < changes.length && changes[at].operation === Operation.INSERT) {
+      added.push(changes[at]);
+      at++;
+    }
+
+    if (removed.length === added.length) {
+      removed.forEach((change, index) => {
+        pairs.push({ before: change.text, after: added[index].text });
+      });
+    }
+  }
+
+  return pairs;
+}
