@@ -13,3 +13,34 @@ import {
 } from '../src/index.js';
 
 const WIDTH = 42;
+
+/**
+ * Times a function, reporting operations per second.
+ *
+ * @param {string} name what is being measured
+ * @param {() => void} body the thing to run
+ * @param {number} [iterations] how many times
+ */
+function bench(name, body, iterations = 1000) {
+  // A warm-up, so the first measurement is not paying for the just-in-time
+  // compiler's first look at the code.
+  for (let at = 0; at < Math.min(iterations, 50); at++) body();
+
+  const started = process.hrtime.bigint();
+  for (let at = 0; at < iterations; at++) body();
+  const elapsed = Number(process.hrtime.bigint() - started) / 1e6;
+
+  const each = elapsed / iterations;
+  const perSecond = Math.round(1000 / each);
+  console.log(
+    `${name.padEnd(WIDTH)}${format(each)} ms/op   ${perSecond.toLocaleString('en-US')}/s`,
+  );
+}
+
+function format(milliseconds) {
+  return milliseconds.toFixed(milliseconds < 0.01 ? 5 : 3).padStart(9);
+}
+
+function section(title) {
+  console.log(`\n${title}\n${'-'.repeat(title.length)}`);
+}
