@@ -77,3 +77,45 @@ test('word tokens concatenate back to the original', () => {
     assert.equal(words(text).join(''), text);
   }
 });
+
+test('characters are split by code point, not by UTF-16 unit', () => {
+  // Splitting an emoji in half produces two broken halves of a character.
+  assert.deepEqual(characters('ab'), ['a', 'b']);
+  assert.equal(characters('\u{1f600}').length, 1);
+  assert.equal(characters('a\u{1f600}b').length, 3);
+});
+
+test('split dispatches on the granularity', () => {
+  assert.deepEqual(split('a b\n', Granularity.LINE), ['a b']);
+  assert.deepEqual(split('a b', Granularity.WORD), ['a', ' ', 'b']);
+  assert.deepEqual(split('ab', Granularity.CHARACTER), ['a', 'b']);
+  assert.deepEqual(split('a\n'), ['a'], 'lines by default');
+});
+
+test('an unknown granularity is reported with what is allowed', () => {
+  const error = throwsWith(() => split('a', 'paragraph'), UsageError);
+  assert.match(error.message, /line, word or character/);
+});
+
+test('something that is not text is reported with what it was', () => {
+  const error = throwsWith(() => lines(null), UsageError);
+  assert.match(error.message, /must be a string, got null/);
+  throwsWith(() => words(42), UsageError);
+  throwsWith(() => join('not an array'), UsageError);
+});
+
+test('a comparison key folds what it is told to fold', () => {
+  assert.equal(key('  a   b  ', { ignoreWhitespace: true }), 'a b');
+  assert.equal(key('aB', { ignoreCase: true }), 'AB');
+  assert.equal(key('  aB ', { ignoreWhitespace: true, ignoreCase: true }), 'AB');
+  assert.equal(key('  a  '), '  a  ', 'and nothing by default');
+});
+
+test('keys returns the tokens themselves when there is nothing to fold', () => {
+  // Identity rather than a copy, because the common case is no folding and
+  // mapping a large file for nothing is waste.
+  const tokens = ['a', 'b'];
+  assert.equal(keys(tokens), tokens);
+  assert.notEqual(keys(tokens, { ignoreCase: true }), tokens);
+  assert.deepEqual(keys(['aB'], { ignoreCase: true }), ['AB']);
+});
