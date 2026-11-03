@@ -315,3 +315,44 @@ test('stat warns when the new file still holds conflict markers', () => {
 
   assert.match(result.out, /warning: the new file holds conflict markers/);
 });
+
+// ---- argument parsing ---------------------------------------------------
+
+test('the flags parse into options', () => {
+  const options = parseArguments([
+    'diff', 'a', 'b', '-c', '5', '-w', '-i', '--words', '--git', '-R', '--fuzz', '0',
+  ]);
+
+  assert.equal(options.command, 'diff');
+  assert.deepEqual(options.files, ['a', 'b']);
+  assert.equal(options.context, 5);
+  assert.equal(options.fuzz, 0);
+  assert.ok(options.ignoreWhitespace);
+  assert.ok(options.ignoreCase);
+  assert.ok(options.words);
+  assert.ok(options.git);
+  assert.ok(options.reverse);
+});
+
+test('an unknown flag is reported rather than taken as a file name', () => {
+  const error = throwsWith(() => parseArguments(['diff', '--nope', 'a', 'b']), UsageError);
+  assert.match(error.message, /unknown option '--nope'/);
+});
+
+test('a flag that needs a value says so', () => {
+  throwsWith(() => parseArguments(['diff', 'a', 'b', '-c']), UsageError);
+  throwsWith(() => parseArguments(['diff', 'a', 'b', '-o']), UsageError);
+});
+
+test('a context that is not a whole number is reported', () => {
+  const error = throwsWith(() => parseArguments(['diff', 'a', 'b', '-c', 'lots']), UsageError);
+  assert.match(error.message, /non-negative whole number/);
+  throwsWith(() => parseArguments(['diff', 'a', 'b', '-c', '-1']), UsageError);
+  throwsWith(() => parseArguments(['diff', 'a', 'b', '--fuzz', '1.5']), UsageError);
+});
+
+test('a bad flag reaches the caller as trouble, not as a crash', () => {
+  const result = run(['diff', '--nope', 'a', 'b'], FILES);
+  assert.equal(result.code, Exit.TROUBLE);
+  assert.match(result.err, /unknown option/);
+});
