@@ -48,3 +48,73 @@ jobs:
 
       - name: "Test"
         run: node --test test/*.test.js
+
+      - name: "Assert every import is relative or from the standard library"
+        run: |
+          if grep -rn --include='*.js' "from '[^.n]" src test tools bench bin; then
+            echo "an import is neither relative nor from the standard library"
+            exit 1
+          fi
+          echo "every import is relative or standard library"
+
+      - name: "Check the package loads and that the versions agree"
+        run: |
+          node --input-type=module -e "
+            import { readFileSync } from 'node:fs';
+            const mend = await import('./src/index.js');
+            const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+            if (pkg.version !== mend.VERSION) {
+              console.error('package.json ' + pkg.version + ' but VERSION ' + mend.VERSION);
+              process.exit(1);
+            }
+            const before = 'one\ntwo\nthree\n';
+            const after = 'one\nTWO\nthree\n';
+            const patch = mend.createPatch(before, after, { oldPath: 'f', newPath: 'f' });
+            if (!patch.includes('-two')) { console.error('no patch'); process.exit(1); }
+            if (mend.patch(before, patch) !== after) { console.error('apply'); process.exit(1); }
+            const back = mend.applyPatch(after, mend.reverse(mend.parseOne(patch)));
+            if (back.text !== before) { console.error('reverse'); process.exit(1); }
+            console.log('the package loads and round-trips, version ' + mend.VERSION);
+          "
+
+      - name: "Check the diff agrees with the system diff, byte for byte"
+        run: |
+          mkdir -p ci-tmp
+          cd ci-tmp
+          printf 'one\ntwo\nthree\nfour\nfive\n' > old.txt
+          printf 'one\ntwo\nTHREE\nfour\nfive\n' > new.txt
+          # --label keeps diff from writing a tab and a timestamp after each
+          # path, which is metadata rather than part of the patch.
+          diff -u --label old.txt --label new.txt old.txt new.txt > system.patch || true
+          node ../bin/mend.js diff old.txt new.txt > mend.patch || true
+          echo "--- system diff ---"
+          cat system.patch
+          echo "--- mend ---"
+          cat mend.patch
+          if ! diff -q system.patch mend.patch; then
+            echo "mend and the system diff disagree"
+            exit 1
+          fi
+          echo "byte-identical to the system diff"
+
+      - name: "Check the system patch command accepts our output"
+        run: |
+          cd ci-tmp
+          cp old.txt target.txt
+          node ../bin/mend.js diff old.txt new.txt -o change.patch || true
+          patch target.txt < change.patch
+          if ! diff -q target.txt new.txt; then
+            echo "the system patch command produced something else"
+            exit 1
+          fi
+          echo "the system patch command applies our patch"
+
+      - name: "Check we accept the system diff's output"
+        run: |
+          cd ci-tmp
+          node ../bin/mend.js apply old.txt system.patch -o ours.txt
+          if ! diff -q ours.txt new.txt; then
+            echo "we applied the system patch to something else"
+            exit 1
+          fi
+          echo "we apply the system diff's patch"
