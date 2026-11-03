@@ -244,3 +244,46 @@ function readHunk(lines, start, pending) {
 
   return at;
 }
+
+/**
+ * Reverses a diff, so applying it undoes what it describes.
+ *
+ * Every insertion becomes a deletion and the two sides swap everywhere: the
+ * paths, the line numbers, the counts and the newline facts. Missing any one
+ * of those produces a patch that applies and then fails to round-trip,
+ * which is the sort of bug that is found much later.
+ *
+ * @param {Diff} diff the diff to reverse
+ * @returns {Diff} the reversed diff
+ */
+export function reverse(diff) {
+  const flip = {
+    [Operation.EQUAL]: Operation.EQUAL,
+    [Operation.INSERT]: Operation.DELETE,
+    [Operation.DELETE]: Operation.INSERT,
+  };
+
+  return new Diff({
+    oldTotal: diff.newTotal,
+    newTotal: diff.oldTotal,
+    hunks: diff.hunks.map((hunk) => new Hunk({
+      oldStart: hunk.newStart,
+      oldLines: hunk.newLines,
+      newStart: hunk.oldStart,
+      newLines: hunk.oldLines,
+      changes: hunk.changes.map((change) => ({
+        operation: flip[change.operation],
+        text: change.text,
+        oldLine: change.newLine,
+        newLine: change.oldLine,
+      })),
+    })),
+    oldPath: diff.newPath,
+    newPath: diff.oldPath,
+    oldEndsWithNewline: diff.newEndsWithNewline,
+    newEndsWithNewline: diff.oldEndsWithNewline,
+    crlf: diff.crlf,
+    minimal: diff.minimal,
+    distance: diff.distance,
+  });
+}
