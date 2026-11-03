@@ -77,3 +77,59 @@ export function forwards(edits) {
     .filter((edit) => edit.operation !== Operation.DELETE)
     .flatMap((edit) => edit.tokens);
 }
+
+/**
+ * Applies an edit script backwards, which must rebuild the first sequence.
+ *
+ * @param {object[]} edits the runs
+ * @returns {string[]} the tokens of the first sequence
+ */
+export function backwards(edits) {
+  return edits
+    .filter((edit) => edit.operation !== Operation.INSERT)
+    .flatMap((edit) => edit.tokens);
+}
+
+/**
+ * A small deterministic random generator.
+ *
+ * Deterministic because a property test that fails once in fifty runs and
+ * cannot be reproduced is worse than no test at all.
+ *
+ * @param {number} [seed] the starting state
+ * @returns {() => number} a function returning numbers in [0, 1)
+ */
+export function random(seed = 1) {
+  let state = seed;
+  return () => {
+    state = (state * 1103515245 + 12345) & 0x7fffffff;
+    return state / 0x7fffffff;
+  };
+}
+
+/**
+ * The longest common subsequence length, by dynamic programming.
+ *
+ * The slow, obviously-correct version, used to check that the fast one finds
+ * a genuinely minimal edit script rather than merely a valid one.
+ *
+ * @param {string[]} before the first sequence
+ * @param {string[]} after the second
+ * @returns {number} the length
+ */
+export function bruteForceCommon(before, after) {
+  const table = Array.from(
+    { length: before.length + 1 },
+    () => new Array(after.length + 1).fill(0),
+  );
+
+  for (let i = 1; i <= before.length; i++) {
+    for (let j = 1; j <= after.length; j++) {
+      table[i][j] = before[i - 1] === after[j - 1]
+        ? table[i - 1][j - 1] + 1
+        : Math.max(table[i - 1][j], table[i][j - 1]);
+    }
+  }
+
+  return table[before.length][after.length];
+}
