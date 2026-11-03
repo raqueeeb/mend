@@ -38,3 +38,69 @@ test('changes to different regions both survive', () => {
   assert.ok(result.clean);
   assert.equal(result.text, L('one', 'TWO', 'three', 'FOUR', 'five'));
 });
+
+test('changes to the same region conflict', () => {
+  const result = merge(
+    BASE,
+    L('one', 'OURS', 'three', 'four', 'five'),
+    L('one', 'THEIRS', 'three', 'four', 'five'),
+  );
+
+  assert.ok(!result.clean);
+  assert.equal(result.conflictCount, 1);
+  assert.equal(result.text, L(
+    'one',
+    `${MARKERS.ours} ours`,
+    'OURS',
+    MARKERS.divider,
+    'THEIRS',
+    `${MARKERS.theirs} theirs`,
+    'three',
+    'four',
+    'five',
+  ));
+});
+
+test('the identical change on both sides is agreement, not a conflict', () => {
+  // Two people fixing the same typo the same way have not disagreed.
+  const same = L('one', 'FIXED', 'three', 'four', 'five');
+
+  const result = merge(BASE, same, same);
+  assert.ok(result.clean);
+  assert.equal(result.text, same);
+});
+
+test('a multi-line disagreement is one conflict, not one per line', () => {
+  // Five separate conflict blocks over a five-line rewrite would be unusable.
+  const result = merge(
+    L('a', 'b', 'c', 'd', 'e'),
+    L('a', '1', '2', '3', 'e'),
+    L('a', 'x', 'y', 'z', 'e'),
+  );
+
+  assert.equal(result.conflictCount, 1);
+  assert.equal(result.regions.length, 3, 'agreed, conflict, agreed');
+});
+
+test('an insertion on one side keeps the line it was inserted before', () => {
+  // A pure insertion consumes no base line, so the cursor must not advance
+  // past one -- doing so silently drops the following line.
+  const ours = L('one', 'two', 'new', 'three', 'four', 'five');
+
+  const result = merge(BASE, ours, BASE);
+  assert.ok(result.clean);
+  assert.equal(result.text, ours);
+});
+
+test('different insertions at the same point conflict without losing the file', () => {
+  const result = merge(
+    BASE,
+    L('A', 'one', 'two', 'three', 'four', 'five'),
+    L('B', 'one', 'two', 'three', 'four', 'five'),
+  );
+
+  assert.ok(!result.clean);
+  assert.ok(result.text.includes('\none\n'), 'the base line after the conflict survives');
+  assert.ok(result.text.includes('A'));
+  assert.ok(result.text.includes('B'));
+});
