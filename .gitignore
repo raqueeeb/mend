@@ -1,0 +1,10 @@
+node_modules/
+coverage/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.tgz
+probe*.mjs
+ci-tmp/
