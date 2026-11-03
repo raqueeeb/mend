@@ -118,3 +118,70 @@ jobs:
             exit 1
           fi
           echo "we apply the system diff's patch"
+
+      - name: "Check a round trip through the system patch command, in reverse"
+        run: |
+          cd ci-tmp
+          cp new.txt back.txt
+          patch -R back.txt < change.patch
+          if ! diff -q back.txt old.txt; then
+            echo "reversing our patch did not restore the original"
+            exit 1
+          fi
+          echo "the system patch command reverses our patch"
+
+      - name: "Exercise the command line, checking the exit codes"
+        run: |
+          cd ci-tmp
+          printf 'one\nOURS\nthree\nfour\nfive\n' > ours2.txt
+          printf 'one\nTHEIRS\nthree\nfour\nfive\n' > theirs.txt
+
+          expect() {
+            want="$1"
+            shift
+            set +e
+            "$@"
+            got=$?
+            set -e
+            if [ "$got" -ne "$want" ]; then
+              echo "expected exit $want from: $* -- got $got"
+              exit 1
+            fi
+          }
+
+          # Exit codes follow diff: 0 no differences, 1 differences, 2 trouble.
+          expect 0 node ../bin/mend.js --version
+          expect 0 node ../bin/mend.js diff old.txt old.txt
+          expect 1 node ../bin/mend.js diff old.txt new.txt
+          expect 2 node ../bin/mend.js diff old.txt nope.txt
+          expect 2 node ../bin/mend.js diff old.txt
+          expect 1 node ../bin/mend.js show change.patch
+          expect 1 node ../bin/mend.js stat old.txt new.txt
+          expect 0 node ../bin/mend.js stat old.txt old.txt
+          expect 1 node ../bin/mend.js merge old.txt ours2.txt theirs.txt
+          expect 0 node ../bin/mend.js merge old.txt ours2.txt old.txt
+          expect 0 node ../bin/mend.js apply old.txt change.patch --dry-run
+          expect 2 node ../bin/mend.js frobnicate old.txt new.txt
+          echo "every exit code was what it should be"
+
+      - name: "Check a file with no final newline survives a round trip"
+        run: |
+          cd ci-tmp
+          printf 'alpha\nbeta' > nonl-old.txt
+          printf 'alpha\nBETA' > nonl-new.txt
+          node ../bin/mend.js diff nonl-old.txt nonl-new.txt -o nonl.patch || true
+          cat nonl.patch
+          if [ "$(grep -c 'No newline at end of file' nonl.patch)" -ne 2 ]; then
+            echo "both sides should have been marked"
+            exit 1
+          fi
+          cp nonl-old.txt nonl-target.txt
+          patch nonl-target.txt < nonl.patch
+          if ! cmp nonl-target.txt nonl-new.txt; then
+            echo "the round trip changed the bytes"
+            exit 1
+          fi
+          echo "no final newline survived, byte for byte"
+
+      - name: "Run the benchmark, so it cannot rot"
+        run: node bench/run.js
