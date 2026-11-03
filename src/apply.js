@@ -29,3 +29,34 @@ import { endsWithNewline, join, lines as splitLines, usesCrlf } from './tokenize
 
 /** How many lines of context may be dropped before giving up. */
 export const DEFAULT_FUZZ = 2;
+
+/** How far either side of the stated line to look. */
+export const DEFAULT_SEARCH = 200;
+
+/** What happened to one hunk. */
+export class HunkResult {
+  /**
+   * @param {object} fields the outcome
+   */
+  constructor(fields) {
+    this.index = fields.index;
+    this.applied = fields.applied;
+    this.line = fields.line ?? null;
+    this.offset = fields.offset ?? 0;
+    this.fuzz = fields.fuzz ?? 0;
+    this.reason = fields.reason ?? null;
+    Object.freeze(this);
+  }
+
+  /** A line describing the outcome, in the style `patch` uses. */
+  describe() {
+    if (!this.applied) return `Hunk #${this.index + 1} failed: ${this.reason}`;
+
+    const notes = [];
+    if (this.offset !== 0) notes.push(`offset ${this.offset} line${abs(this.offset)}`);
+    if (this.fuzz !== 0) notes.push(`fuzz ${this.fuzz}`);
+    const suffix = notes.length > 0 ? ` (${notes.join(', ')})` : '';
+
+    return `Hunk #${this.index + 1} applied at ${this.line}${suffix}`;
+  }
+}
