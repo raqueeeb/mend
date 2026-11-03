@@ -153,3 +153,56 @@ test('a file that is not there is reported, not thrown', () => {
   assert.equal(result.code, Exit.TROUBLE);
   assert.match(result.err, /cannot read missing\.txt/);
 });
+
+// ---- apply --------------------------------------------------------------
+
+test('apply patches the file in place', () => {
+  const patch = run(['diff', 'old.txt', 'new.txt'], FILES).out;
+  const result = run(['apply', 'old.txt', 'p.patch'], { ...FILES, 'p.patch': `${patch}\n` });
+
+  assert.equal(result.code, Exit.SAME);
+  assert.equal(result.written['old.txt'], L('one', 'TWO', 'three'));
+  assert.match(result.out, /Hunk #1 applied at 1/);
+});
+
+test('apply can write somewhere else', () => {
+  const patch = `${run(['diff', 'old.txt', 'new.txt'], FILES).out}\n`;
+  const result = run(['apply', 'old.txt', 'p.patch', '-o', 'patched.txt'], {
+    ...FILES, 'p.patch': patch,
+  });
+
+  assert.equal(result.written['patched.txt'], L('one', 'TWO', 'three'));
+  assert.equal(result.written['old.txt'], undefined, 'the original is untouched');
+});
+
+test('apply --dry-run reports without writing', () => {
+  const patch = `${run(['diff', 'old.txt', 'new.txt'], FILES).out}\n`;
+  const result = run(['apply', 'old.txt', 'p.patch', '--dry-run'], {
+    ...FILES, 'p.patch': patch,
+  });
+
+  assert.equal(result.code, Exit.SAME);
+  assert.match(result.out, /would write old\.txt/);
+  assert.deepEqual(result.written, {});
+});
+
+test('apply -R undoes a patch', () => {
+  const patch = `${run(['diff', 'old.txt', 'new.txt'], FILES).out}\n`;
+  const result = run(['apply', 'new.txt', 'p.patch', '-R'], { ...FILES, 'p.patch': patch });
+
+  assert.equal(result.code, Exit.SAME);
+  assert.equal(result.written['new.txt'], L('one', 'two', 'three'));
+});
+
+test('a hunk that does not apply goes to standard error and exits one', () => {
+  const patch = `${run(['diff', 'old.txt', 'new.txt'], FILES).out}\n`;
+  const result = run(['apply', 'unrelated.txt', 'p.patch'], {
+    ...FILES,
+    'p.patch': patch,
+    'unrelated.txt': L('nothing', 'like', 'it'),
+  });
+
+  assert.equal(result.code, Exit.DIFFERENT);
+  assert.match(result.err, /Hunk #1 failed/);
+  assert.deepEqual(result.written, {}, 'and nothing is written');
+});
