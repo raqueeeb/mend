@@ -281,3 +281,23 @@ function backtrack(trace, n, m, offset) {
 
   return reversed.reverse();
 }
+
+function insertion(oldAt, newFrom, newTo) {
+  return {
+    operation: Operation.INSERT,
+    oldFrom: oldAt,
+    oldTo: oldAt,
+    newFrom,
+    newTo,
+  };
+}
+
+function deletion(oldFrom, newAt, oldTo) {
+  return {
+    operation: Operation.DELETE,
+    oldFrom,
+    oldTo,
+    newFrom: newAt,
+    newTo: newAt,
+  };
+}
