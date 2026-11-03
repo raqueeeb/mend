@@ -332,3 +332,18 @@ function runMerge({
   err(`${result.conflictCount} conflict${result.conflictCount === 1 ? '' : 's'}`);
   return Exit.DIFFERENT;
 }
+
+function runStat({ out, read, options }) {
+  expect(options, 2, 'two files: an old one and a new one');
+  const [oldPath, newPath] = options.files;
+
+  const before = read(oldPath);
+  const after = read(newPath);
+  const diff = diffText(before, after, { oldPath, newPath, context: options.context });
+
+  out(formatStat(diff));
+  out(`similarity ${(similarity(before, after) * 100).toFixed(1)}%`);
+  if (hasConflictMarkers(after)) out('warning: the new file holds conflict markers');
+
+  return diff.isEmpty ? Exit.SAME : Exit.DIFFERENT;
+}
