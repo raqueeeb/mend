@@ -281,3 +281,37 @@ test('merge --diff3 shows the base inside the conflict', () => {
   const result = run(['merge', 'base.txt', 'ours.txt', 'theirs.txt', '--diff3'], FILES);
   assert.match(result.out, /^\|\|\|\|\|\|\| base$/m);
 });
+
+test('merge can write to a file', () => {
+  const result = run(['merge', 'base.txt', 'ours.txt', 'base.txt', '-o', 'merged.txt'], FILES);
+  assert.equal(result.written['merged.txt'], L('one', 'OURS', 'three'));
+});
+
+test('merge needs three files', () => {
+  assert.match(run(['merge', 'base.txt', 'ours.txt'], FILES).err, /three files/);
+});
+
+// ---- stat ---------------------------------------------------------------
+
+test('stat prints the counts and the similarity', () => {
+  const result = run(['stat', 'old.txt', 'new.txt'], FILES);
+
+  assert.equal(result.code, Exit.DIFFERENT);
+  assert.match(result.out, /new\.txt \| 2 \+-/);
+  assert.match(result.out, /similarity 66\.7%/);
+});
+
+test('stat on identical files exits zero', () => {
+  const result = run(['stat', 'old.txt', 'base.txt'], FILES);
+  assert.equal(result.code, Exit.SAME);
+  assert.match(result.out, /similarity 100\.0%/);
+});
+
+test('stat warns when the new file still holds conflict markers', () => {
+  const conflicted = run(['merge', 'base.txt', 'ours.txt', 'theirs.txt'], FILES).out;
+  const result = run(['stat', 'base.txt', 'c.txt'], {
+    ...FILES, 'c.txt': `${conflicted}\n`,
+  });
+
+  assert.match(result.out, /warning: the new file holds conflict markers/);
+});
