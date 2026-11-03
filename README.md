@@ -158,3 +158,27 @@ editing the lines, so the output still shows the original text.
 - [docs/format.md](docs/format.md) — the unified diff format, as actually
   practised
 - [docs/api.md](docs/api.md) — the public API
+
+## Layout
+
+```
+src/
+  myers.js       the algorithm: shortest edit script between two sequences
+  tokenize.js    splitting text into lines, words or characters
+  diff.js        diffing text, and grouping changes into hunks
+  unified.js     writing a unified, git-style or context diff
+  parse.js       reading a unified diff, and reversing one
+  apply.js       applying a patch, with offset search and fuzz
+  merge.js       three-way merge with conflict markers
+  similarity.js  how alike two texts are, and word-level highlighting
+  errors.js      the two exception types, and where the line is drawn
+  cli.js         the five subcommands
+test/            197 tests, including a check that the edit distance is
+                 minimal against a brute-force LCS
+bench/           the benchmark above
+tools/lint.js    the linter, which is also dependency-free
+```
+
+## Licence
+
+MIT.
