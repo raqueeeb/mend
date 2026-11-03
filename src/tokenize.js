@@ -1,0 +1,46 @@
+/**
+ * Splitting text into the units a diff compares.
+ *
+ * The choice of unit is the single biggest influence on whether a diff reads
+ * well. Lines are right for source code, words for prose, and characters for
+ * a short string where a word diff would show the whole thing changed. All
+ * three go through the same algorithm, so this module only has to produce
+ * arrays of comparable pieces.
+ *
+ * Line splitting has one trap worth stating. A text file may or may not end
+ * with a newline, and the difference matters: a patch has to say which, or
+ * applying it adds or removes a byte nobody asked about. So the split keeps
+ * that fact rather than discarding it.
+ */
+
+import { UsageError, requireText } from './errors.js';
+
+/** How text is broken up before comparison. */
+export const Granularity = {
+  LINE: 'line',
+  WORD: 'word',
+  CHARACTER: 'character',
+};
+
+/**
+ * Splits text into lines, without their line endings.
+ *
+ * A trailing newline does not produce a final empty line -- `"a\n"` is one
+ * line, not two -- because every tool that treats it as two ends up with an
+ * off-by-one in its line numbers. Whether the text ended with a newline is
+ * reported separately by {@link endsWithNewline}.
+ *
+ * @param {string} text the text
+ * @returns {string[]} the lines
+ */
+export function lines(text) {
+  requireText(text, 'text');
+  if (text === '') return [];
+
+  const split = text.split('\n');
+  if (split[split.length - 1] === '') split.pop();
+
+  // A CRLF file is compared by its content, not by its line endings, so the
+  // carriage return comes off here and is restored when text is rebuilt.
+  return split.map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line));
+}
