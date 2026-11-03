@@ -171,3 +171,29 @@ export function formatContext(diff) {
 
   return `${out.join('\n')}\n`;
 }
+
+function span(start, count) {
+  return count === 0 ? `${start},${start}` : `${start},${start + count - 1}`;
+}
+
+/**
+ * A short statistic line, as `diff --stat` prints.
+ *
+ * @param {object} diff the diff
+ * @param {object} [options] how to format
+ * @param {number} [options.width] how wide the bar may be
+ * @returns {string} one line
+ */
+export function formatStat(diff, options = {}) {
+  const width = options.width ?? 40;
+  const total = diff.added + diff.removed;
+  if (total === 0) return `${diff.newPath} | 0`;
+
+  // The bar is scaled only when it would not fit, so a small change is shown
+  // at its true size rather than always filling the width.
+  const scale = total > width ? width / total : 1;
+  const plus = '+'.repeat(Math.max(diff.added > 0 ? 1 : 0, Math.round(diff.added * scale)));
+  const minus = '-'.repeat(Math.max(diff.removed > 0 ? 1 : 0, Math.round(diff.removed * scale)));
+
+  return `${diff.newPath} | ${total} ${plus}${minus}`;
+}
