@@ -31,3 +31,32 @@ export const Exit = {
   DIFFERENT: 1,
   TROUBLE: 2,
 };
+
+const USAGE = `mend ${VERSION} -- a diff and patch engine
+
+usage:
+  mend diff <old> <new> [options]     write a unified patch
+  mend apply <file> <patch>           apply a patch to a file
+  mend show <patch>                   summarise a patch
+  mend merge <base> <ours> <theirs>   three-way merge
+  mend stat <old> <new>               one line of counts
+
+options:
+  -c, --context <n>    unchanged lines around each change (default 3)
+  -w, --ignore-space   ignore whitespace differences
+  -i, --ignore-case    ignore case differences
+      --words          diff by word, for prose
+      --git            write a 'diff --git' header
+      --context-format write an old-style context diff
+  -R, --reverse        reverse the patch before using it
+      --fuzz <n>       context lines apply may drop (default 2)
+      --inline         mark changed words within changed lines
+  -o, --output <file>  write there instead of to standard output
+      --dry-run        with apply, report without writing
+      --diff3          with merge, show the base inside a conflict
+
+exit codes:
+  0  no differences, or the operation succeeded
+  1  there were differences, or a hunk did not apply
+  2  the arguments or the patch were unusable
+`;
