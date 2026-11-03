@@ -23,3 +23,20 @@ import { fileURLToPath } from 'node:url';
 // directory with a space in its name comes back as "project%20folder" and
 // every readdir fails with ENOENT on a path that looks almost right.
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
+const MAX_LINE = 100;
+
+/** Modules the project is allowed to import. */
+const ALLOWED_IMPORTS = [/^node:/, /^\./];
+
+/** Every .js file under a directory, recursively. */
+function* jsFiles(directory) {
+  for (const entry of readdirSync(directory)) {
+    if (entry === 'node_modules' || entry.startsWith('.')) continue;
+    const path = `${directory}${entry}`;
+    if (statSync(path).isDirectory()) {
+      yield* jsFiles(`${path}/`);
+      continue;
+    }
+    if (entry.endsWith('.js') || entry.endsWith('.mjs')) yield path;
+  }
+}
