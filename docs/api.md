@@ -52,3 +52,57 @@ A `Hunk` carries `oldStart`, `oldLines`, `newStart`, `newLines`, its
 side the line does not exist on.
 
 Both are frozen.
+
+### `diffWords(before, after)` and `diffCharacters(before, after)`
+
+Runs rather than hunks — there is nothing to locate in a file, so context and
+grouping have nothing to do.
+
+```js
+diffWords('the quick fox', 'the slow fox');
+// equal 'the ', delete 'quick', insert 'slow', equal ' fox'
+```
+
+### `diffSequences(before, after, options?)`
+
+The algorithm itself, over arrays of anything comparable by `===`.
+
+```js
+const { edits, distance, minimal } = diffSequences(['a', 'b'], ['a', 'c']);
+```
+
+`options.beforeKeys` and `options.afterKeys` supply comparison keys, so two
+tokens can compare equal while staying different in the output. That is how
+whitespace and case folding work.
+
+## Writing a patch
+
+| function | what it writes |
+| --- | --- |
+| `formatUnified(diff, options?)` | a unified diff |
+| `formatGitStyle(diff, options?)` | with a `diff --git` header |
+| `formatContext(diff)` | the older context format |
+| `formatStat(diff, options?)` | one line, as `diff --stat` prints |
+
+`formatUnified` takes `headers` (default `true`), `oldLabel` and `newLabel`.
+It returns `''` when there are no hunks — not an empty-looking patch with
+headers — so the result can be tested for truth.
+
+## Reading a patch
+
+| function | what it does |
+| --- | --- |
+| `parsePatch(text)` | one `Diff` per file, in order |
+| `parseOne(text)` | the single `Diff`, or throws |
+| `reverse(diff)` | the diff that undoes it |
+
+`reverse` swaps every side: the paths, the operations, the line numbers, the
+counts and the newline facts. Missing any one of those produces a patch that
+applies and then fails to round-trip.
+
+```js
+import { applyPatch, parseOne, reverse } from 'mend-diff';
+
+const diff = parseOne(patchText);
+applyPatch(after, reverse(diff));   // back to before
+```
