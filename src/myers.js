@@ -229,3 +229,55 @@ function search(before, after, maxDistance) {
   if (m > 0) moves.push(insertion(n, 0, m));
   return { moves, distance: n + m, minimal: false };
 }
+
+/**
+ * Walks the recorded search backwards to recover the path.
+ *
+ * Each round of the search recorded the furthest point on every diagonal, so
+ * the path can be reconstructed by asking, at each distance, which diagonal
+ * the current point must have come from.
+ *
+ * @param {Int32Array[]} trace the per-round snapshots
+ * @param {number} n the first sequence's length
+ * @param {number} m the second's
+ * @param {number} offset the index offset for diagonal zero
+ * @returns {object[]} the moves, in order
+ */
+function backtrack(trace, n, m, offset) {
+  const reversed = [];
+  let x = n;
+  let y = m;
+
+  for (let d = trace.length - 1; d >= 0; d--) {
+    const v = trace[d];
+    const k = x - y;
+
+    const down = k === -d || (k !== d && v[offset + k - 1] < v[offset + k + 1]);
+    const previousK = down ? k + 1 : k - 1;
+    const previousX = v[offset + previousK];
+    const previousY = previousX - previousK;
+
+    // The free diagonal moves at the end of this round.
+    while (x > previousX && y > previousY) {
+      reversed.push({
+        operation: Operation.EQUAL,
+        oldFrom: x - 1,
+        oldTo: x,
+        newFrom: y - 1,
+        newTo: y,
+      });
+      x--;
+      y--;
+    }
+
+    if (d > 0) {
+      reversed.push(x === previousX
+        ? insertion(previousX, previousY, previousY + 1)
+        : deletion(previousX, previousY, previousX + 1));
+      x = previousX;
+      y = previousY;
+    }
+  }
+
+  return reversed.reverse();
+}
