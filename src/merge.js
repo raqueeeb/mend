@@ -245,3 +245,25 @@ function sideText(changes, at, span, base) {
   const untouched = base.slice(at + edit.length, at + span);
   return [...edit.lines, ...untouched];
 }
+
+function same(left, right) {
+  return left.length === right.length && left.every((line, index) => line === right[index]);
+}
+
+/**
+ * Whether a merged text still holds conflict markers.
+ *
+ * Useful as a commit-time check: a file with markers in it is a file nobody
+ * finished merging.
+ *
+ * @param {string} text the text
+ * @returns {boolean} true when a conflict marker is present
+ */
+export function hasConflictMarkers(text) {
+  requireText(text, 'text');
+  return splitLines(text).some((line) => (
+    line.startsWith(MARKERS.ours)
+    || line.startsWith(MARKERS.theirs)
+    || line === MARKERS.divider
+  ));
+}
