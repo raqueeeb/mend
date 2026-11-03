@@ -141,3 +141,39 @@ change the result rather than where it lands.
 
 Each applied hunk shifts the lines after it, so the next hunk's stated
 position is corrected by the drift accumulated so far.
+
+## Three-way merge
+
+Diff each side against the base. Each produces a map from base position to
+"what this side has there instead".
+
+Walk the base. Where neither side has an entry, the line is agreed. Where one
+does, take the widest span either side touches and compare the two sides'
+replacements for that span:
+
+- neither differs from the base — nothing happened
+- one differs — take it
+- both differ identically — that is agreement, not a conflict
+- both differ, differently — one conflict, covering the whole span
+
+Taking the span rather than a line is what makes a five-line rewrite one
+conflict instead of five.
+
+The subtle case is a **pure insertion**, which consumes no base line. The
+cursor must not advance, or the base line the insertion sits in front of is
+silently dropped; but it must not loop either. So the entries at that
+position are cleared after use and the next pass reads the base line
+normally.
+
+## Line endings and the final newline
+
+Two facts about a text are easy to lose and both change the bytes on disk.
+
+**CRLF** is stripped for comparison, because content is what is being
+compared, and restored on output.
+
+**The final newline** is part of the content. `"a"` and `"a\n"` are
+different files, `diff` reports the difference, and so does this — the lines
+are identical, so the difference lives in the comparison key, which is
+exactly why the key is kept separate from the text. On output it becomes the
+`\ No newline at end of file` marker, one per side that needs one.
