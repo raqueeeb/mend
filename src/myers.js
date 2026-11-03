@@ -22,3 +22,21 @@
  */
 
 import { UsageError } from './errors.js';
+
+/** What an edit does. */
+export const Operation = {
+  EQUAL: 'equal',
+  INSERT: 'insert',
+  DELETE: 'delete',
+};
+
+/**
+ * The distance past which the search gives up on being minimal.
+ *
+ * Myers is O((N+M)D), which is a bargain when D is small and quadratic when
+ * it is not. Two files with nothing in common hit the worst case, and a diff
+ * tool that hangs on them is worse than one that says "these are different".
+ * Past this distance the result is a correct edit script but not the
+ * shortest one, and `diff()` reports that it gave up.
+ */
+export const MAX_EDIT_DISTANCE = 4000;
