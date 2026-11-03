@@ -218,3 +218,69 @@ test('canApply answers without producing the result', () => {
   assert.ok(canApply(before, diff));
   assert.ok(!canApply(L('x', 'y'), diff));
 });
+
+test('a search can be narrowed, which makes a distant hunk fail', () => {
+  const before = L('one', 'two', 'three');
+  const diff = patchFor(before, L('one', 'TWO', 'three'));
+  const far = L(...Array.from({ length: 300 }, () => 'pad'), 'one', 'two', 'three');
+
+  assert.ok(canApply(far, diff, { search: 400 }));
+  assert.ok(!canApply(far, diff, { search: 10 }));
+});
+
+test('the nearest match wins when a hunk could fit twice', () => {
+  // Searching outwards rather than forwards: a patch is as likely to have
+  // moved up as down, and the nearest match is the one most likely to be
+  // right.
+  const block = L('x', 'target', 'y');
+  const before = L('pad', 'pad', 'pad', 'pad', 'x', 'target', 'y');
+  const diff = patchFor(before, L('pad', 'pad', 'pad', 'pad', 'x', 'TARGET', 'y'));
+
+  const twice = L('x', 'target', 'y', 'pad', 'pad', 'x', 'target', 'y');
+  const result = applyPatch(twice, diff);
+
+  assert.ok(result.ok);
+  // The second copy is nearer to line 5 than the first, so it is the one
+  // that changes.
+  assert.equal(result.text, L('x', 'target', 'y', 'pad', 'pad', 'x', 'TARGET', 'y'));
+  void block;
+});
+
+test('the wrong sort of argument is a caller mistake', () => {
+  throwsWith(() => applyPatch(null, { hunks: [] }), UsageError);
+  throwsWith(() => applyPatch('a', null), UsageError);
+  throwsWith(() => applyPatch('a', { nope: true }), UsageError);
+});
+
+test('patch is the one-call form and returns null on failure', () => {
+  const before = L('one', 'two');
+  const text = createPatch(before, L('one', 'TWO'), { oldPath: 'f', newPath: 'f' });
+
+  assert.equal(patchText(before, text), L('one', 'TWO'));
+  assert.equal(patchText(L('x', 'y'), text), null);
+});
+
+test('a patch applies to its own output for two hundred random edits', () => {
+  // The property that matters: whatever the diff says, applying it to the
+  // old text must produce the new text exactly.
+  const next = random(1103);
+
+  for (let trial = 0; trial < 200; trial++) {
+    const before = Array.from(
+      { length: Math.floor(next() * 25) },
+      () => `line ${Math.floor(next() * 8)}`,
+    );
+    const after = before.filter(() => next() > 0.2);
+    for (let insert = Math.floor(next() * 4); insert > 0; insert--) {
+      after.splice(Math.floor(next() * (after.length + 1)), 0, `new ${Math.floor(next() * 5)}`);
+    }
+
+    const beforeText = before.length === 0 ? '' : `${before.join('\n')}\n`;
+    const afterText = after.length === 0 ? '' : `${after.join('\n')}\n`;
+    if (beforeText === afterText) continue;
+
+    const result = applyPatch(beforeText, patchFor(beforeText, afterText));
+    assert.ok(result.ok, `trial ${trial} applied`);
+    assert.equal(result.text, afterText, `trial ${trial} matched`);
+  }
+});
