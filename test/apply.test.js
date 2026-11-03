@@ -160,3 +160,23 @@ test('a reversed patch undoes itself', () => {
 
   assert.equal(applyPatch(after, reverse(diff)).text, before);
 });
+
+test('a patch that empties a file applies', () => {
+  assert.equal(applyPatch(L('a', 'b'), patchFor(L('a', 'b'), '')).text, '');
+});
+
+test('a patch that fills an empty file applies', () => {
+  assert.equal(applyPatch('', patchFor('', L('a', 'b'))).text, L('a', 'b'));
+});
+
+test('an insertion at the very start applies', () => {
+  const before = L('b', 'c');
+  const after = L('a', 'b', 'c');
+  assert.equal(applyPatch(before, patchFor(before, after)).text, after);
+});
+
+test('an insertion at the very end applies', () => {
+  const before = L('a', 'b');
+  const after = L('a', 'b', 'c');
+  assert.equal(applyPatch(before, patchFor(before, after)).text, after);
+});
