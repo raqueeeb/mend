@@ -187,3 +187,32 @@ test('a large file with one change is minimal and cheap', () => {
   assert.equal(diff.distance, 2);
   assert.equal(diff.hunks.length, 1);
 });
+
+test('text that is not text is reported, not diffed', () => {
+  throwsWith(() => diffText(null, 'a'), UsageError);
+  throwsWith(() => diffText('a', 42), UsageError);
+});
+
+// ---- other granularities ------------------------------------------------
+
+test('a word diff shows which words moved', () => {
+  const edits = diffWords('the quick brown fox', 'the slow brown fox');
+  // The first character of each run is its sign, so an equal run that begins
+  // with a space token shows two spaces.
+  assert.equal(render(edits), ' the |-quick|+slow|  brown fox');
+});
+
+test('a word diff treats a spacing change as a spacing change', () => {
+  const edits = diffWords('a b', 'a  b');
+  assert.equal(render(edits), ' a|- |+  | b');
+});
+
+test('a character diff is for short strings', () => {
+  assert.equal(render(diffCharacters('cat', 'cut')), ' c|-a|+u| t');
+});
+
+test('same answers the question without building hunks', () => {
+  assert.ok(same(L('a'), L('a')));
+  assert.ok(!same(L('a'), L('b')));
+  assert.ok(same(L('a  b'), L('a b'), { ignoreWhitespace: true }));
+});
