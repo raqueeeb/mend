@@ -115,3 +115,59 @@ function markerPositions(diff, hunk) {
 
   return marks;
 }
+
+/**
+ * Formats a diff with a `diff --git` style file header.
+ *
+ * What `git diff` writes, and what tooling that expects to find a file name
+ * looks for. The index line is deliberately absent: it carries blob hashes
+ * this library does not compute, and a wrong hash is worse than none.
+ *
+ * @param {object} diff the diff
+ * @param {object} [options] how to format
+ * @returns {string} the patch
+ */
+export function formatGitStyle(diff, options = {}) {
+  const body = formatUnified(diff, {
+    ...options,
+    headers: true,
+    oldLabel: `a/${diff.oldPath}`,
+    newLabel: `b/${diff.newPath}`,
+  });
+  if (body === '') return '';
+
+  return `diff --git a/${diff.oldPath} b/${diff.newPath}\n${body}`;
+}
+
+/**
+ * Formats a diff the way `diff -c` does, with both sides in full.
+ *
+ * Included because a context diff is easier to read by eye when a hunk
+ * replaces most of its lines: the old and new text are not interleaved, so
+ * each can be read as text.
+ *
+ * @param {object} diff the diff
+ * @returns {string} the patch
+ */
+export function formatContext(diff) {
+  if (diff.hunks.length === 0) return '';
+
+  const out = [`*** ${diff.oldPath}`, `--- ${diff.newPath}`];
+
+  for (const hunk of diff.hunks) {
+    out.push('***************');
+    out.push(`*** ${span(hunk.oldStart, hunk.oldLines)} ****`);
+    for (const change of hunk.changes) {
+      if (change.operation === Operation.INSERT) continue;
+      out.push(`${change.operation === Operation.DELETE ? '- ' : '  '}${change.text}`);
+    }
+
+    out.push(`--- ${span(hunk.newStart, hunk.newLines)} ----`);
+    for (const change of hunk.changes) {
+      if (change.operation === Operation.DELETE) continue;
+      out.push(`${change.operation === Operation.INSERT ? '+ ' : '  '}${change.text}`);
+    }
+  }
+
+  return `${out.join('\n')}\n`;
+}
