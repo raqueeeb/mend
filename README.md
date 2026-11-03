@@ -121,3 +121,40 @@ tool could not do its job. A script that treats 1 as failure is wrong about
 `diff` too.
 
 `mend --help` lists every flag.
+
+## What it handles
+
+**The awkward parts of the format**, which are most of the format:
+
+- A hunk header counts lines, not changes, and omits a count of one, so
+  `@@ -1 +1 @@` rather than `@@ -1,1 +1,1 @@`.
+- A context line is a space followed by the text, which means an empty
+  context line is a lone trailing space. Real, and the reason so many patches
+  are broken by editors that strip it — so the parser tolerates a bare empty
+  line too.
+- A file with no final newline is marked with `\ No newline at end of file`.
+  Both sides can need one. A hunk changing the last line of two such files
+  carries **two** markers, and a patch that emits only the last of them
+  reverses into one that adds a byte nobody asked for.
+- Whether a file ends with a newline is part of its content: `"a"` and
+  `"a\n"` differ, and `mend diff` says so, as `diff` does.
+- Prose before the first `---` is skipped, so an emailed patch parses.
+- A `diff --git` header is written and read; no `index` line is written,
+  because it carries blob hashes this library does not compute and a wrong
+  hash is worse than none.
+
+**Line, word and character granularity.** Lines for code, words for prose,
+characters for a short string. Word splitting keeps the whitespace between
+words as its own token, so the text rebuilds exactly and a change of spacing
+reads as a change of spacing rather than as every word being rewritten.
+
+**Whitespace and case folding**, done by comparing a *key* rather than by
+editing the lines, so the output still shows the original text.
+
+## Documentation
+
+- [docs/design.md](docs/design.md) — the algorithm, and the decisions
+  around it
+- [docs/format.md](docs/format.md) — the unified diff format, as actually
+  practised
+- [docs/api.md](docs/api.md) — the public API
