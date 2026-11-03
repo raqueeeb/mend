@@ -148,3 +148,51 @@ test('the labels are whatever the caller calls the two sides', () => {
   assert.ok(result.text.includes(`${MARKERS.ours} HEAD`));
   assert.ok(result.text.includes(`${MARKERS.theirs} feature/x`));
 });
+
+test('diff3 style shows what the line used to be', () => {
+  // Which is usually what tells a reader which side to keep.
+  const result = merge(
+    BASE,
+    L('one', 'OURS', 'three', 'four', 'five'),
+    L('one', 'THEIRS', 'three', 'four', 'five'),
+    { diff3: true },
+  );
+
+  assert.ok(result.text.includes(`${MARKERS.base} base`));
+  assert.ok(result.text.includes('\ntwo\n'), 'the base text is inside the conflict');
+});
+
+test('merging empty files gives an empty file', () => {
+  assert.equal(merge('', '', '').text, '');
+  assert.ok(merge('', '', '').clean);
+});
+
+test('a file created identically on both sides is clean', () => {
+  assert.equal(merge('', L('a'), L('a')).text, L('a'));
+});
+
+test('a file created differently on both sides conflicts', () => {
+  const result = merge('', L('a'), L('b'));
+  assert.ok(!result.clean);
+});
+
+test('merge regions can be inspected without the markers', () => {
+  const regions = mergeLines(
+    ['one', 'two', 'three'],
+    ['one', 'OURS', 'three'],
+    ['one', 'THEIRS', 'three'],
+  );
+
+  assert.equal(regions.length, 3);
+  assert.deepEqual(regions[0].lines, ['one']);
+  assert.ok(regions[1].conflict);
+  assert.deepEqual(regions[1].ours, ['OURS']);
+  assert.deepEqual(regions[1].base, ['two']);
+  assert.deepEqual(regions[1].theirs, ['THEIRS']);
+  assert.deepEqual(regions[2].lines, ['three']);
+});
+
+test('a region is frozen', () => {
+  const [region] = mergeLines(['a'], ['a'], ['a']);
+  assert.throws(() => { region.conflict = true; }, TypeError);
+});
