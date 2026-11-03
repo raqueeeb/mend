@@ -40,3 +40,41 @@ export const Operation = {
  * shortest one, and `diff()` reports that it gave up.
  */
 export const MAX_EDIT_DISTANCE = 4000;
+
+/**
+ * One run of edits of the same kind.
+ *
+ * Runs rather than individual edits, because every consumer -- hunk
+ * grouping, unified output, apply -- works in runs, and producing them here
+ * means nobody downstream has to coalesce.
+ */
+export class Edit {
+  /**
+   * @param {string} operation one of {@link Operation}
+   * @param {string[]} tokens the tokens this run covers
+   * @param {number} oldStart where it starts in the first sequence
+   * @param {number} newStart where it starts in the second
+   */
+  constructor(operation, tokens, oldStart, newStart) {
+    this.operation = operation;
+    this.tokens = tokens;
+    this.oldStart = oldStart;
+    this.newStart = newStart;
+    Object.freeze(this);
+  }
+
+  /** How many tokens this run covers. */
+  get length() {
+    return this.tokens.length;
+  }
+
+  /** Whether this run is unchanged text. */
+  get isEqual() {
+    return this.operation === Operation.EQUAL;
+  }
+
+  toString() {
+    const sign = { equal: ' ', insert: '+', delete: '-' }[this.operation];
+    return `${sign}${this.length}@${this.oldStart},${this.newStart}`;
+  }
+}
