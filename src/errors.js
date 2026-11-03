@@ -51,3 +51,49 @@ export class ParseError extends MendError {
 
 /** A caller mistake: the wrong type, or an impossible combination of options. */
 export class UsageError extends MendError {}
+
+/**
+ * Throws a {@link UsageError} unless a condition holds.
+ *
+ * Used for the arguments a caller controls, where failing early with a clear
+ * message beats producing a diff of `undefined`.
+ *
+ * @param {unknown} condition what must be true
+ * @param {string} message what to say when it is not
+ * @throws {UsageError} when the condition is falsy
+ */
+export function check(condition, message) {
+  if (!condition) throw new UsageError(message);
+}
+
+/**
+ * Checks that a value is a string, naming the argument in the message.
+ *
+ * @param {unknown} value the value
+ * @param {string} name what the argument is called
+ * @returns {string} the value
+ * @throws {UsageError} when it is not a string
+ */
+export function requireText(value, name) {
+  if (typeof value !== 'string') {
+    throw new UsageError(`${name} must be a string, got ${describe(value)}`);
+  }
+  return value;
+}
+
+/**
+ * Describes a value for an error message.
+ *
+ * `typeof null` is `'object'`, which is never what a reader wants to be
+ * told, and an array called an object is nearly as unhelpful.
+ *
+ * @param {unknown} value any value
+ * @returns {string} a short description
+ */
+export function describe(value) {
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return 'an array';
+  if (typeof value === 'object') return 'an object';
+  if (typeof value === 'string') return 'a string';
+  return typeof value;
+}
