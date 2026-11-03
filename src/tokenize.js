@@ -90,3 +90,34 @@ export function join(input, trailing = true, crlf = false) {
   const ending = crlf ? '\r\n' : '\n';
   return input.join(ending) + (trailing ? ending : '');
 }
+
+/**
+ * Splits text into words and the whitespace between them.
+ *
+ * The whitespace is kept as its own token rather than being attached to a
+ * word or dropped. Keeping it means the text can be rebuilt exactly; marking
+ * it separately means a change of spacing shows as a change of spacing
+ * rather than as every surrounding word having been rewritten.
+ *
+ * @param {string} text the text
+ * @returns {string[]} the tokens, which concatenate back to the input
+ */
+export function words(text) {
+  requireText(text, 'text');
+  const matches = text.match(/\s+|[^\s]+/g);
+  return matches === null ? [] : matches;
+}
+
+/**
+ * Splits text into characters.
+ *
+ * By code point, not by UTF-16 unit, so an emoji is one token and a diff
+ * cannot cut it in half and produce two broken halves of a character.
+ *
+ * @param {string} text the text
+ * @returns {string[]} the characters
+ */
+export function characters(text) {
+  requireText(text, 'text');
+  return [...text];
+}
