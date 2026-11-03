@@ -35,3 +35,45 @@ test('whether the text ended with a newline is kept', () => {
   // Empty text does not, which keeps the round trip exact.
   assert.equal(endsWithNewline(''), false);
 });
+
+test('CRLF is detected from the first line ending', () => {
+  // A file with mixed endings has a bigger problem than this can fix.
+  assert.equal(usesCrlf('a\r\nb\n'), true);
+  assert.equal(usesCrlf('a\nb\r\n'), false);
+  assert.equal(usesCrlf('a'), false);
+  assert.equal(usesCrlf(''), false);
+});
+
+test('joining is the inverse of splitting', () => {
+  for (const text of ['', 'a\n', 'a', 'a\nb\n', 'a\nb', '\n', 'a\n\nb']) {
+    assert.equal(
+      join(lines(text), endsWithNewline(text)),
+      text,
+      `${JSON.stringify(text)} round-trips`,
+    );
+  }
+});
+
+test('joining restores CRLF when asked', () => {
+  assert.equal(join(['a', 'b'], true, true), 'a\r\nb\r\n');
+  assert.equal(join(['a', 'b'], false, true), 'a\r\nb');
+});
+
+test('joining nothing gives nothing, whatever the flags say', () => {
+  assert.equal(join([], true), '');
+  assert.equal(join([], false), '');
+});
+
+test('words keep the whitespace between them as its own token', () => {
+  // So the text can be rebuilt exactly, and a change of spacing shows as a
+  // change of spacing rather than as every word being rewritten.
+  assert.deepEqual(words('a b'), ['a', ' ', 'b']);
+  assert.deepEqual(words('  a  '), ['  ', 'a', '  ']);
+  assert.deepEqual(words(''), []);
+});
+
+test('word tokens concatenate back to the original', () => {
+  for (const text of ['hello world', '  leading', 'trailing  ', 'a\tb\nc', '']) {
+    assert.equal(words(text).join(''), text);
+  }
+});
