@@ -53,3 +53,63 @@ export function similarity(before, after, options = {}) {
 export function isRename(before, after, threshold = 0.5) {
   return similarity(before, after) >= threshold;
 }
+
+/**
+ * The word-level difference between two single lines.
+ *
+ * Returns runs over both lines, which a renderer turns into highlighting.
+ * Word granularity rather than character, because a character diff of two
+ * lines of prose produces a speckle of single letters that is harder to read
+ * than the two lines were.
+ *
+ * @param {string} before the old line
+ * @param {string} after the new line
+ * @returns {object[]} the runs, in order
+ */
+export function inlineDiff(before, after) {
+  requireText(before, 'before');
+  requireText(after, 'after');
+
+  return diffSequences(
+    split(before, Granularity.WORD),
+    split(after, Granularity.WORD),
+  ).edits;
+}
+
+/**
+ * Renders an inline diff with markers around what changed.
+ *
+ * Two strings come back, one per side, each with only its own changes
+ * marked: the old line marks what was removed and the new line marks what
+ * was added. Showing both sets on both lines is a common mistake and makes
+ * each line unreadable as a line.
+ *
+ * @param {string} before the old line
+ * @param {string} after the new line
+ * @param {object} [options] the markers to use
+ * @param {string} [options.open] what opens a changed run
+ * @param {string} [options.close] what closes it
+ * @returns {{before: string, after: string}} the two marked lines
+ */
+export function markInline(before, after, options = {}) {
+  const open = options.open ?? '[';
+  const close = options.close ?? ']';
+  const edits = inlineDiff(before, after);
+
+  const left = [];
+  const right = [];
+
+  for (const edit of edits) {
+    const text = edit.tokens.join('');
+    if (edit.operation === Operation.EQUAL) {
+      left.push(text);
+      right.push(text);
+    } else if (edit.operation === Operation.DELETE) {
+      left.push(`${open}${text}${close}`);
+    } else {
+      right.push(`${open}${text}${close}`);
+    }
+  }
+
+  return { before: left.join(''), after: right.join('') };
+}
