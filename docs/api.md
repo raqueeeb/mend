@@ -106,3 +106,36 @@ import { applyPatch, parseOne, reverse } from 'mend-diff';
 const diff = parseOne(patchText);
 applyPatch(after, reverse(diff));   // back to before
 ```
+
+## Applying a patch
+
+### `applyPatch(text, diff, options?)`
+
+| option | default | meaning |
+| --- | --- | --- |
+| `fuzz` | `2` | context lines that may be dropped |
+| `search` | `200` | how far either side of the stated line to look |
+| `partial` | `false` | keep the hunks that did apply |
+
+Returns an `ApplyResult`:
+
+| field | meaning |
+| --- | --- |
+| `ok` | whether every hunk applied |
+| `text` | the patched text, or the original when it failed |
+| `hunks` | one `HunkResult` each |
+| `appliedCount`, `failedCount` | counts |
+| `describe()` | a report, one line per hunk |
+
+A `HunkResult` carries `applied`, `line`, `offset`, `fuzz` and, when it
+failed, `reason`. Its `describe()` reads as `patch` does:
+
+```
+Hunk #1 applied at 11 (offset 10 lines)
+Hunk #2 applied at 40 (fuzz 1)
+Hunk #3 failed: expected "one" at or near line 60, found "something else"
+```
+
+`canApply(text, diff, options?)` answers without producing the result.
+
+## Merging
