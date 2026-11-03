@@ -245,3 +245,39 @@ test('show summarises a patch', () => {
   assert.match(result.out, /@@ -1,3 \+1,3 @@  2 changed/);
   assert.match(result.out, /1 file$/);
 });
+
+test('show counts the files in a multi-file patch', () => {
+  const one = `${run(['diff', 'old.txt', 'new.txt', '--git'], FILES).out}\n`;
+  const result = run(['show', 'p.patch'], { 'p.patch': one + one.replace(/old\.txt/g, 'z.txt') });
+
+  assert.match(result.out, /2 files$/);
+});
+
+test('show -R summarises the patch the other way round', () => {
+  const patch = `${run(['diff', 'old.txt', 'new.txt'], FILES).out}\n`;
+  const result = run(['show', 'p.patch', '-R'], { 'p.patch': patch });
+
+  assert.match(result.out, /new\.txt -> old\.txt/);
+});
+
+// ---- merge --------------------------------------------------------------
+
+test('merge takes the one-sided change', () => {
+  const result = run(['merge', 'base.txt', 'ours.txt', 'base.txt'], FILES);
+  assert.equal(result.code, Exit.SAME);
+  assert.equal(result.out, L('one', 'OURS', 'three').replace(/\n$/, ''));
+});
+
+test('merge marks a conflict and exits one', () => {
+  const result = run(['merge', 'base.txt', 'ours.txt', 'theirs.txt'], FILES);
+
+  assert.equal(result.code, Exit.DIFFERENT);
+  assert.match(result.out, /^<<<<<<< ours\.txt$/m);
+  assert.match(result.out, /^>>>>>>> theirs\.txt$/m);
+  assert.match(result.err, /1 conflict$/);
+});
+
+test('merge --diff3 shows the base inside the conflict', () => {
+  const result = run(['merge', 'base.txt', 'ours.txt', 'theirs.txt', '--diff3'], FILES);
+  assert.match(result.out, /^\|\|\|\|\|\|\| base$/m);
+});
