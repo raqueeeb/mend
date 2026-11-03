@@ -22,3 +22,29 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+
+      - name: "Report the versions in play"
+        run: |
+          node --version
+          npm --version
+
+      - name: "Assert there are no dependencies"
+        run: |
+          node --input-type=module -e "
+            import { readFileSync } from 'node:fs';
+            const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+            for (const field of ['dependencies', 'devDependencies', 'peerDependencies']) {
+              const held = Object.keys(pkg[field] || {});
+              if (held.length > 0) {
+                console.error(field + ' is not empty: ' + held.join(', '));
+                process.exit(1);
+              }
+            }
+            console.log('no dependencies');
+          "
+
+      - name: "Lint"
+        run: node tools/lint.js
+
+      - name: "Test"
+        run: node --test test/*.test.js
