@@ -292,3 +292,45 @@ function startOf(slice, field, count) {
   const found = slice.find((change) => change[field] !== null);
   return found ? found[field] : 0;
 }
+
+/**
+ * Diffs two texts at word granularity, for a one-line change.
+ *
+ * Returns runs rather than hunks: there is nothing to locate in a file, so
+ * context and hunk grouping have nothing to do. What the caller wants is
+ * which words moved, usually to colour them.
+ *
+ * @param {string} before the old text
+ * @param {string} after the new text
+ * @param {object} [options] how to compare
+ * @returns {object[]} the runs, in order
+ */
+export function diffWords(before, after, options = {}) {
+  requireText(before, 'before');
+  requireText(after, 'after');
+
+  const beforeTokens = split(before, Granularity.WORD);
+  const afterTokens = split(after, Granularity.WORD);
+
+  return diffSequences(beforeTokens, afterTokens, {
+    beforeKeys: keys(beforeTokens, options),
+    afterKeys: keys(afterTokens, options),
+  }).edits;
+}
+
+/**
+ * Diffs two texts character by character.
+ *
+ * @param {string} before the old text
+ * @param {string} after the new text
+ * @returns {object[]} the runs, in order
+ */
+export function diffCharacters(before, after) {
+  requireText(before, 'before');
+  requireText(after, 'after');
+
+  return diffSequences(
+    split(before, Granularity.CHARACTER),
+    split(after, Granularity.CHARACTER),
+  ).edits;
+}
