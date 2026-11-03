@@ -121,3 +121,55 @@ export function characters(text) {
   requireText(text, 'text');
   return [...text];
 }
+
+/**
+ * Splits text at the given granularity.
+ *
+ * @param {string} text the text
+ * @param {string} granularity one of {@link Granularity}
+ * @returns {string[]} the tokens
+ * @throws {UsageError} when the granularity is not one of the three
+ */
+export function split(text, granularity = Granularity.LINE) {
+  switch (granularity) {
+    case Granularity.LINE: return lines(text);
+    case Granularity.WORD: return words(text);
+    case Granularity.CHARACTER: return characters(text);
+    default:
+      throw new UsageError(
+        `granularity must be line, word or character, got ${JSON.stringify(granularity)}`,
+      );
+  }
+}
+
+/**
+ * Normalises a line for comparison.
+ *
+ * Returns the key two lines should be compared by, which is the line itself
+ * unless whitespace is being ignored. Comparing by a key rather than editing
+ * the lines means the output still shows the original text.
+ *
+ * @param {string} line the line
+ * @param {object} [options] what to ignore
+ * @param {boolean} [options.ignoreWhitespace] collapse runs and trim
+ * @param {boolean} [options.ignoreCase] compare case-insensitively
+ * @returns {string} the comparison key
+ */
+export function key(line, options = {}) {
+  let out = line;
+  if (options.ignoreWhitespace) out = out.replace(/\s+/g, ' ').trim();
+  if (options.ignoreCase) out = out.toUpperCase();
+  return out;
+}
+
+/**
+ * Builds the comparison keys for a whole array of tokens.
+ *
+ * @param {string[]} tokens the tokens
+ * @param {object} [options] what to ignore, as for {@link key}
+ * @returns {string[]} the keys, one per token
+ */
+export function keys(tokens, options = {}) {
+  if (!options.ignoreWhitespace && !options.ignoreCase) return tokens;
+  return tokens.map((token) => key(token, options));
+}
