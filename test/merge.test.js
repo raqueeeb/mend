@@ -104,3 +104,47 @@ test('different insertions at the same point conflict without losing the file', 
   assert.ok(result.text.includes('A'));
   assert.ok(result.text.includes('B'));
 });
+
+test('the same insertion on both sides appears once', () => {
+  const both = L('new', 'one', 'two', 'three', 'four', 'five');
+  const result = merge(BASE, both, both);
+
+  assert.ok(result.clean);
+  assert.equal(result.text, both);
+});
+
+test('a deletion on one side is taken', () => {
+  const ours = L('one', 'three', 'four', 'five');
+  const result = merge(BASE, ours, BASE);
+
+  assert.ok(result.clean);
+  assert.equal(result.text, ours);
+});
+
+test('the same deletion on both sides is agreement', () => {
+  const both = L('one', 'three', 'four', 'five');
+  assert.ok(merge(BASE, both, both).clean);
+  assert.equal(merge(BASE, both, both).text, both);
+});
+
+test('a deletion against an edit of the same line conflicts', () => {
+  const result = merge(
+    BASE,
+    L('one', 'three', 'four', 'five'),
+    L('one', 'EDITED', 'three', 'four', 'five'),
+  );
+
+  assert.ok(!result.clean);
+});
+
+test('the labels are whatever the caller calls the two sides', () => {
+  const result = merge(
+    BASE,
+    L('one', 'OURS', 'three', 'four', 'five'),
+    L('one', 'THEIRS', 'three', 'four', 'five'),
+    { ourLabel: 'HEAD', theirLabel: 'feature/x' },
+  );
+
+  assert.ok(result.text.includes(`${MARKERS.ours} HEAD`));
+  assert.ok(result.text.includes(`${MARKERS.theirs} feature/x`));
+});
