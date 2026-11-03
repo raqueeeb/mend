@@ -294,3 +294,41 @@ function runApply({ out, err, read, write, options }) {
   write(options.output ?? target, result.text);
   return Exit.SAME;
 }
+
+function runShow({ out, read, options }) {
+  expect(options, 1, 'one file: the patch to summarise');
+  const diffs = parsePatch(read(options.files[0]));
+
+  for (const diff of diffs) {
+    const shown = options.reverse ? reverse(diff) : diff;
+    out(`${shown.oldPath} -> ${shown.newPath}`);
+    out(`  ${shown.summary}`);
+    for (const hunk of shown.hunks) {
+      out(`  ${hunk.header}  ${hunk.changedLines} changed`);
+    }
+  }
+
+  out(`${diffs.length} file${diffs.length === 1 ? '' : 's'}`);
+  return diffs.length === 0 ? Exit.SAME : Exit.DIFFERENT;
+}
+
+function runMerge({
+  out, err, read, write, options,
+}) {
+  expect(options, 3, 'three files: the base, ours and theirs');
+  const [basePath, ourPath, theirPath] = options.files;
+
+  const result = merge(read(basePath), read(ourPath), read(theirPath), {
+    ourLabel: ourPath,
+    theirLabel: theirPath,
+    diff3: options.diff3,
+  });
+
+  if (options.output) write(options.output, result.text);
+  else out(result.text.replace(/\n$/, ''));
+
+  if (result.clean) return Exit.SAME;
+
+  err(`${result.conflictCount} conflict${result.conflictCount === 1 ? '' : 's'}`);
+  return Exit.DIFFERENT;
+}
