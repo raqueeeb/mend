@@ -41,3 +41,69 @@ export class Region {
     Object.freeze(this);
   }
 }
+
+/** The outcome of a merge. */
+export class MergeResult {
+  /**
+   * @param {object} fields the outcome
+   */
+  constructor(fields) {
+    this.regions = fields.regions;
+    this.text = fields.text;
+    Object.freeze(this);
+  }
+
+  /** Whether anything conflicted. */
+  get clean() {
+    return this.regions.every((region) => !region.conflict);
+  }
+
+  /** How many regions conflicted. */
+  get conflictCount() {
+    return this.regions.filter((region) => region.conflict).length;
+  }
+}
+
+/**
+ * Merges two changed versions of a file using their common ancestor.
+ *
+ * @param {string} base the common ancestor
+ * @param {string} ours one side's version
+ * @param {string} theirs the other side's version
+ * @param {object} [options] how to present conflicts
+ * @param {string} [options.ourLabel] what to call our side
+ * @param {string} [options.theirLabel] what to call their side
+ * @param {boolean} [options.diff3] include the base inside a conflict
+ * @returns {MergeResult} the merged text, with markers where it conflicted
+ */
+export function merge(base, ours, theirs, options = {}) {
+  requireText(base, 'base');
+  requireText(ours, 'ours');
+  requireText(theirs, 'theirs');
+
+  const baseLines = splitLines(base);
+  const regions = mergeLines(baseLines, splitLines(ours), splitLines(theirs));
+
+  const out = [];
+  for (const region of regions) {
+    if (!region.conflict) {
+      out.push(...region.lines);
+      continue;
+    }
+
+    out.push(`${MARKERS.ours} ${options.ourLabel ?? 'ours'}`);
+    out.push(...region.ours);
+    if (options.diff3) {
+      out.push(`${MARKERS.base} base`);
+      out.push(...region.base);
+    }
+    out.push(MARKERS.divider);
+    out.push(...region.theirs);
+    out.push(`${MARKERS.theirs} ${options.theirLabel ?? 'theirs'}`);
+  }
+
+  const trailing = endsWithNewline(ours) || endsWithNewline(theirs) || endsWithNewline(base);
+  const crlf = usesCrlf(base) || usesCrlf(ours) || usesCrlf(theirs);
+
+  return new MergeResult({ regions, text: join(out, trailing, crlf) });
+}
