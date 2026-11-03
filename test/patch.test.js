@@ -195,3 +195,44 @@ test('a git prefix and a timestamp come off the paths', () => {
   assert.equal(diff.oldPath, 'f.txt');
   assert.equal(diff.newPath, 'f.txt');
 });
+
+test('dev null survives as itself, because it means something', () => {
+  const diff = parseOne('--- /dev/null\n+++ b/new.txt\n@@ -0,0 +1 @@\n+a\n');
+  assert.equal(diff.oldPath, '/dev/null');
+  assert.equal(diff.newPath, 'new.txt');
+});
+
+test('a multi-file patch parses into one diff per file', () => {
+  const patch = formatGitStyle(diffText(L('a'), L('b'), { oldPath: 'x', newPath: 'x' }))
+    + formatGitStyle(diffText(L('p'), L('q'), { oldPath: 'y', newPath: 'y' }));
+
+  const diffs = parsePatch(patch);
+  assert.equal(diffs.length, 2);
+  assert.deepEqual(diffs.map((diff) => diff.newPath), ['x', 'y']);
+});
+
+test('several hunks in one file all parse', () => {
+  const before = L(...Array.from({ length: 40 }, (_, index) => `line ${index}`));
+  const lines = before.split('\n');
+  lines[2] = 'changed';
+  lines[30] = 'also';
+
+  const diff = parseOne(patchOf(before, lines.join('\n')));
+  assert.equal(diff.hunks.length, 2);
+});
+
+test('a no-newline marker is read even when the counts are already met', () => {
+  // It arrives *after* the hunk's last line, so a reader that stops as soon
+  // as the counts are satisfied never sees it.
+  const diff = parseOne(`--- a\n+++ b\n@@ -1 +1 @@\n-a\n+b\n${NO_NEWLINE}\n`);
+  assert.equal(diff.newEndsWithNewline, false);
+  assert.equal(diff.oldEndsWithNewline, true);
+});
+
+test('a line count that disagrees with the hunk is refused', () => {
+  // The counts are load-bearing: a patch that has been truncated would
+  // otherwise corrupt the file silently.
+  const error = throwsWith(() => parseOne('--- a\n+++ b\n@@ -1,5 +1,5 @@\n one\n'), ParseError);
+  assert.match(error.message, /says 5 old and 5 new lines but the hunk has 1 and 1/);
+  assert.equal(error.line, 3);
+});
