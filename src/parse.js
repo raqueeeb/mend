@@ -79,3 +79,29 @@ export function parsePatch(patch) {
 
   return diffs;
 }
+
+/**
+ * Parses a patch that is known to describe exactly one file.
+ *
+ * @param {string} patch the patch text
+ * @returns {Diff} the diff
+ * @throws {ParseError} when the patch holds no diff, or more than one
+ */
+export function parseOne(patch) {
+  const diffs = parsePatch(patch);
+  if (diffs.length === 0) throw new ParseError('the patch contains no hunks');
+  if (diffs.length > 1) {
+    throw new ParseError(`the patch describes ${diffs.length} files, expected one`);
+  }
+  return diffs[0];
+}
+
+function blank(oldPath, newPath) {
+  return {
+    oldPath,
+    newPath,
+    hunks: [],
+    oldEndsWithNewline: true,
+    newEndsWithNewline: true,
+  };
+}
