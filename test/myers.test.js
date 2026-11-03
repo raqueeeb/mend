@@ -72,3 +72,66 @@ test('each run carries where it starts in both sequences', () => {
   assert.equal(insertion.newStart, 1);
   assert.equal(deletion.length, 1);
 });
+
+test('an edit run is frozen, so a consumer cannot corrupt the script', () => {
+  const { edits } = diff('a', 'b');
+  assert.throws(() => { edits[0].operation = 'nonsense'; }, TypeError);
+});
+
+test('a run describes itself for a failure message', () => {
+  const { edits } = diff('ab', 'b');
+  assert.equal(String(edits[0]), '-1@0,0');
+});
+
+test('the script rebuilds both sequences', () => {
+  // The defining property: deletions removed gives the second sequence,
+  // insertions removed gives the first.
+  const { edits } = diff('kitten', 'sitting');
+  assert.equal(forwards(edits).join(''), 'sitting');
+  assert.equal(backwards(edits).join(''), 'kitten');
+});
+
+test('the script rebuilds both sequences for three thousand random pairs', () => {
+  const next = random(20261103);
+  const alphabet = 'abcd';
+
+  for (let trial = 0; trial < 3000; trial++) {
+    const before = Array.from(
+      { length: Math.floor(next() * 12) },
+      () => alphabet[Math.floor(next() * alphabet.length)],
+    ).join('');
+    const after = Array.from(
+      { length: Math.floor(next() * 12) },
+      () => alphabet[Math.floor(next() * alphabet.length)],
+    ).join('');
+
+    const { edits } = diff(before, after);
+    assert.equal(forwards(edits).join(''), after, `forwards for ${before} -> ${after}`);
+    assert.equal(backwards(edits).join(''), before, `backwards for ${before} -> ${after}`);
+  }
+});
+
+test('the edit distance is minimal, checked against brute force', () => {
+  // Myers is only worth having if it finds the *shortest* script, and the
+  // only honest check is the slow algorithm that cannot be wrong.
+  const next = random(7);
+  const alphabet = 'abc';
+
+  for (let trial = 0; trial < 2000; trial++) {
+    const before = Array.from(
+      { length: Math.floor(next() * 10) },
+      () => alphabet[Math.floor(next() * alphabet.length)],
+    );
+    const after = Array.from(
+      { length: Math.floor(next() * 10) },
+      () => alphabet[Math.floor(next() * alphabet.length)],
+    );
+
+    const common = bruteForceCommon(before, after);
+    const expected = before.length + after.length - 2 * common;
+    const { distance, minimal } = diffSequences(before, after);
+
+    assert.ok(minimal);
+    assert.equal(distance, expected, `${before.join('')} -> ${after.join('')}`);
+  }
+});
