@@ -137,3 +137,61 @@ test('a stat line scales its bar only when it has to', () => {
   const bar = formatStat(large, { width: 10 }).split(' ').pop();
   assert.ok(bar.length <= 11, `the bar is bounded, got ${bar.length}`);
 });
+
+test('a stat line for no change says zero', () => {
+  assert.equal(formatStat(diffText(L('a'), L('a'), { newPath: 'f' })), 'f | 0');
+});
+
+// ---- reading a patch back ----------------------------------------------
+
+test('a patch round-trips through the parser', () => {
+  const diff = diffText(L('one', 'two', 'three'), L('one', 'TWO', 'three'), {
+    oldPath: 'f.txt', newPath: 'f.txt',
+  });
+  const reparsed = parseOne(formatUnified(diff));
+
+  assert.equal(reparsed.oldPath, 'f.txt');
+  assert.equal(reparsed.hunks.length, 1);
+  assert.equal(reparsed.hunks[0].header, diff.hunks[0].header);
+  assert.equal(formatUnified(reparsed), formatUnified(diff));
+});
+
+test('a hunk header with no counts means one line', () => {
+  const diff = parseOne('--- a\n+++ b\n@@ -1 +1 @@\n-a\n+b\n');
+  assert.equal(diff.hunks[0].oldLines, 1);
+  assert.equal(diff.hunks[0].newLines, 1);
+});
+
+test('prose before the patch is skipped', () => {
+  // Mail clients, review tools and commit messages all put text there, and
+  // refusing to parse an emailed patch would make the parser useless.
+  const diff = parseOne([
+    'From: someone',
+    'Subject: [PATCH] fix the thing',
+    '',
+    'Here is why.',
+    '',
+    '--- a/f.txt',
+    '+++ b/f.txt',
+    '@@ -1 +1 @@',
+    '-a',
+    '+b',
+    '',
+  ].join('\n'));
+
+  assert.equal(diff.oldPath, 'f.txt');
+  assert.equal(diff.hunks.length, 1);
+});
+
+test('a git prefix and a timestamp come off the paths', () => {
+  const diff = parseOne([
+    '--- a/f.txt\t2026-11-03 10:00:00',
+    '+++ b/f.txt\t2026-11-03 10:01:00',
+    '@@ -1 +1 @@',
+    '-a',
+    '+b',
+    '',
+  ].join('\n'));
+  assert.equal(diff.oldPath, 'f.txt');
+  assert.equal(diff.newPath, 'f.txt');
+});
