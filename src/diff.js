@@ -158,3 +158,77 @@ export class Diff {
     return `${parts.join(' ')} in ${where}`;
   }
 }
+
+/**
+ * Diffs two texts, line by line.
+ *
+ * @param {string} before the old text
+ * @param {string} after the new text
+ * @param {object} [options] how to diff
+ * @param {number} [options.context] unchanged lines around each change
+ * @param {string} [options.oldPath] the name to record for the old file
+ * @param {string} [options.newPath] the name to record for the new file
+ * @param {boolean} [options.ignoreWhitespace] ignore whitespace differences
+ * @param {boolean} [options.ignoreCase] ignore case differences
+ * @param {number} [options.maxDistance] where the search gives up
+ * @returns {Diff} the diff
+ * @throws {UsageError} when an argument is the wrong type
+ */
+export function diffText(before, after, options = {}) {
+  requireText(before, 'before');
+  requireText(after, 'after');
+
+  const context = options.context ?? DEFAULT_CONTEXT;
+  if (!Number.isInteger(context) || context < 0) {
+    throw new UsageError(`context must be a non-negative integer, got ${context}`);
+  }
+
+  const oldLines = split(before, Granularity.LINE);
+  const newLines = split(after, Granularity.LINE);
+
+  const { edits, distance, minimal } = diffSequences(oldLines, newLines, {
+    beforeKeys: comparisonKeys(oldLines, endsWithNewline(before), options),
+    afterKeys: comparisonKeys(newLines, endsWithNewline(after), options),
+    maxDistance: options.maxDistance,
+  });
+
+  return new Diff({
+    hunks: group(flatten(edits), context),
+    oldPath: options.oldPath ?? 'a',
+    newPath: options.newPath ?? 'b',
+    oldEndsWithNewline: endsWithNewline(before),
+    newEndsWithNewline: endsWithNewline(after),
+    oldTotal: oldLines.length,
+    newTotal: newLines.length,
+    crlf: usesCrlf(before) || usesCrlf(after),
+    minimal,
+    distance,
+  });
+}
+
+/**
+ * Turns runs of edits into one entry per line.
+ *
+ * Hunk grouping counts lines and needs to interleave deletions with the
+ * insertions that replace them, which is easier one line at a time than in
+ * runs.
+ *
+ * @param {object[]} edits the runs
+ * @returns {object[]} one entry per line
+ */
+function flatten(edits) {
+  const out = [];
+
+  for (const edit of edits) {
+    edit.tokens.forEach((text, index) => {
+      out.push({
+        operation: edit.operation,
+        text,
+        oldLine: edit.operation === Operation.INSERT ? null : edit.oldStart + index + 1,
+        newLine: edit.operation === Operation.DELETE ? null : edit.newStart + index + 1,
+      });
+    });
+  }
+
+  return out;
+}
