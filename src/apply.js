@@ -60,3 +60,35 @@ export class HunkResult {
     return `Hunk #${this.index + 1} applied at ${this.line}${suffix}`;
   }
 }
+
+function abs(count) {
+  return Math.abs(count) === 1 ? '' : 's';
+}
+
+/** What happened to the whole patch. */
+export class ApplyResult {
+  /**
+   * @param {object} fields the outcome
+   */
+  constructor(fields) {
+    this.ok = fields.ok;
+    this.text = fields.text;
+    this.hunks = fields.hunks;
+    Object.freeze(this);
+  }
+
+  /** How many hunks applied. */
+  get appliedCount() {
+    return this.hunks.filter((hunk) => hunk.applied).length;
+  }
+
+  /** How many hunks failed. */
+  get failedCount() {
+    return this.hunks.length - this.appliedCount;
+  }
+
+  /** A report, one line per hunk. */
+  describe() {
+    return this.hunks.map((hunk) => hunk.describe()).join('\n');
+  }
+}
