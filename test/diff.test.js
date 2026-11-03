@@ -101,3 +101,40 @@ test('deleting a whole file leaves nothing on the new side', () => {
   assert.equal(diff.hunks[0].newLines, 0);
   assert.equal(diff.hunks[0].header, '@@ -1,2 +0,0 @@');
 });
+
+test('a pure insertion has no deletions and vice versa', () => {
+  assert.equal(diffText(L('a'), L('a', 'b')).removed, 0);
+  assert.equal(diffText(L('a', 'b'), L('a')).added, 0);
+});
+
+test('how each side ended is recorded', () => {
+  // Both facts, separately: a patch has to say which side lacked a newline
+  // and they are not interchangeable.
+  const diff = diffText(N('a', 'b'), L('a', 'B'));
+  assert.equal(diff.oldEndsWithNewline, false);
+  assert.equal(diff.newEndsWithNewline, true);
+});
+
+test('CRLF input is noted so the output can restore it', () => {
+  assert.equal(diffText('a\r\nb\r\n', 'a\r\nB\r\n').crlf, true);
+  assert.equal(diffText(L('a'), L('b')).crlf, false);
+});
+
+test('the paths default to a and b', () => {
+  const diff = diffText(L('a'), L('b'));
+  assert.equal(diff.oldPath, 'a');
+  assert.equal(diff.newPath, 'b');
+});
+
+test('the summary reads as a review comment would', () => {
+  const diff = diffText(L('a', 'b', 'c'), L('a', 'B', 'c', 'd'));
+  assert.equal(diff.summary, '+2 -1 in 1 hunk');
+});
+
+test('whitespace can be ignored, and the output keeps the original text', () => {
+  const before = L('a  b', 'c');
+  const after = L('a b', 'c');
+
+  assert.ok(diffText(before, after, { ignoreWhitespace: true }).isEmpty);
+  assert.ok(!diffText(before, after).isEmpty);
+});
