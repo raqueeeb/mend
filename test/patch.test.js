@@ -236,3 +236,38 @@ test('a line count that disagrees with the hunk is refused', () => {
   assert.match(error.message, /says 5 old and 5 new lines but the hunk has 1 and 1/);
   assert.equal(error.line, 3);
 });
+
+test('a line with an illegal prefix is refused, with its position', () => {
+  const error = throwsWith(
+    () => parseOne('--- a\n+++ b\n@@ -1,2 +1,2 @@\n a\n?b\n'),
+    ParseError,
+  );
+  assert.match(error.message, /must begin with a space/);
+  assert.match(error.format(), /\| \?b/);
+});
+
+test('a patch with no hunks at all is refused by parseOne', () => {
+  throwsWith(() => parseOne('just some prose\n'), ParseError);
+});
+
+test('parseOne refuses a patch that describes two files', () => {
+  const patch = formatGitStyle(diffText(L('a'), L('b'), { oldPath: 'x', newPath: 'x' }))
+    + formatGitStyle(diffText(L('p'), L('q'), { oldPath: 'y', newPath: 'y' }));
+
+  const error = throwsWith(() => parseOne(patch), ParseError);
+  assert.match(error.message, /describes 2 files/);
+});
+
+test('an empty context line written with no trailing space is tolerated', () => {
+  // Extremely common, because editors and mail clients strip it, and
+  // unambiguous, because nothing else is a bare empty line inside a hunk.
+  const diff = parseOne('--- a\n+++ b\n@@ -1,3 +1,3 @@\n a\n\n-b\n+B\n');
+  assert.equal(diff.hunks[0].changes[1].text, '');
+  assert.equal(diff.hunks[0].changes.length, 4);
+});
+
+test('a parse error with no line still formats', () => {
+  const error = new ParseError('something general');
+  assert.equal(error.format(), 'something general');
+  assert.equal(error.line, null);
+});
