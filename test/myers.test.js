@@ -135,3 +135,59 @@ test('the edit distance is minimal, checked against brute force', () => {
     assert.equal(distance, expected, `${before.join('')} -> ${after.join('')}`);
   }
 });
+
+test('the common prefix and suffix are not searched', () => {
+  // The reason a large file with one change is cheap: the distance is
+  // measured on what is left after trimming, not on the file.
+  const before = Array.from({ length: 20000 }, (_, index) => `line ${index}`);
+  const after = [...before];
+  after[10000] = 'changed';
+
+  const { distance, minimal } = diffSequences(before, after);
+  assert.equal(distance, 2);
+  assert.ok(minimal);
+});
+
+test('a sequence with nothing in common is capped rather than hung', () => {
+  // The worst case for Myers is quadratic, and a diff tool that hangs on two
+  // unrelated files is worse than one that says they are unrelated.
+  const before = Array.from({ length: 3000 }, (_, index) => `a${index}`);
+  const after = Array.from({ length: 3000 }, (_, index) => `b${index}`);
+
+  const { edits, minimal } = diffSequences(before, after, { maxDistance: 100 });
+
+  assert.equal(minimal, false, 'the result says it is not minimal');
+  assert.deepEqual(forwards(edits), after, 'and it is still a correct script');
+  assert.deepEqual(backwards(edits), before);
+});
+
+test('the cap is high enough not to affect an ordinary diff', () => {
+  assert.ok(MAX_EDIT_DISTANCE >= 1000);
+});
+
+test('comparison keys let two tokens compare equal while staying different', () => {
+  // How whitespace and case folding work: the comparison uses the keys and
+  // the output keeps the original text.
+  const before = ['Hello', 'world'];
+  const after = ['HELLO', 'world'];
+
+  const { edits } = diffSequences(before, after, {
+    beforeKeys: before.map((token) => token.toUpperCase()),
+    afterKeys: after.map((token) => token.toUpperCase()),
+  });
+
+  assert.equal(edits.length, 1);
+  assert.ok(edits[0].isEqual);
+  // The tokens kept are the first sequence's, which is what a diff shows.
+  assert.deepEqual(edits[0].tokens, ['Hello', 'world']);
+});
+
+test('the common length is zero when nothing matches', () => {
+  assert.equal(commonLength([...'abc'], [...'xyz']), 0);
+  assert.equal(commonLength([], []), 0);
+});
+
+test('something that is not an array is reported, not diffed', () => {
+  throwsWith(() => diffSequences('abc', ['a']), UsageError);
+  throwsWith(() => diffSequences(['a'], null), UsageError);
+});
