@@ -224,3 +224,69 @@ function applyHunk(lines, hunk, options) {
       + `found ${JSON.stringify(actually)}`,
   };
 }
+
+/**
+ * Drops `fuzz` lines of context from each end of a hunk.
+ *
+ * Returns null when the hunk has no context to spare, which is what stops
+ * fuzz from eating the change itself.
+ *
+ * @param {object} hunk the hunk
+ * @param {number} fuzz how many lines to drop from each end
+ * @returns {object|null} the trimmed changes, or null
+ */
+function trimContext(hunk, fuzz) {
+  if (fuzz === 0) {
+    return { changes: hunk.changes, leadingDropped: 0 };
+  }
+
+  const changes = [...hunk.changes];
+  let leadingDropped = 0;
+
+  for (let dropped = 0; dropped < fuzz; dropped++) {
+    if (changes.length === 0 || changes[0].operation !== Operation.EQUAL) return null;
+    changes.shift();
+    leadingDropped++;
+  }
+  for (let dropped = 0; dropped < fuzz; dropped++) {
+    if (changes.length === 0 || changes[changes.length - 1].operation !== Operation.EQUAL) {
+      return null;
+    }
+    changes.pop();
+  }
+
+  if (changes.every((change) => change.operation === Operation.EQUAL)) return null;
+
+  return { changes, leadingDropped };
+}
+
+/**
+ * Finds where a run of lines sits, looking outwards from a guess.
+ *
+ * Outwards rather than forwards, because a patch is as likely to have moved
+ * up as down, and the nearest match is the one most likely to be right.
+ *
+ * @param {string[]} lines the file
+ * @param {string[]} wanted the lines to find
+ * @param {number} guess where to start looking
+ * @param {number} search how far to look either way
+ * @returns {number|null} the index, or null when it is not there
+ */
+function locate(lines, wanted, guess, search) {
+  if (wanted.length === 0) return Math.min(Math.max(0, guess), lines.length);
+
+  const start = Math.min(Math.max(0, guess), lines.length);
+  if (matches(lines, wanted, start)) return start;
+
+  for (let distance = 1; distance <= search; distance++) {
+    const forward = start + distance;
+    if (forward + wanted.length <= lines.length && matches(lines, wanted, forward)) return forward;
+
+    const back = start - distance;
+    if (back >= 0 && matches(lines, wanted, back)) return back;
+
+    if (back < 0 && forward + wanted.length > lines.length) break;
+  }
+
+  return null;
+}
