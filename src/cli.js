@@ -60,3 +60,143 @@ exit codes:
   1  there were differences, or a hunk did not apply
   2  the arguments or the patch were unusable
 `;
+
+/**
+ * Runs the command line.
+ *
+ * @param {string[]} argv the arguments, without the node and script paths
+ * @param {object} [io] where to write and how to reach the filesystem
+ * @returns {number} the exit code
+ */
+export function main(argv, io = {}) {
+  const out = io.out ?? ((text) => process.stdout.write(`${text}\n`));
+  const err = io.err ?? ((text) => process.stderr.write(`${text}\n`));
+  const read = io.read ?? ((path) => readFileSync(path, 'utf8'));
+  const write = io.write ?? ((path, text) => writeFileSync(path, text));
+
+  if (argv.length === 0 || argv.includes('--help') || argv.includes('-h')) {
+    out(USAGE);
+    return argv.length === 0 ? Exit.TROUBLE : Exit.SAME;
+  }
+
+  if (argv.includes('--version')) {
+    out(VERSION);
+    return Exit.SAME;
+  }
+
+  let options;
+  try {
+    options = parseArguments(argv);
+  } catch (error) {
+    err(error.message);
+    return Exit.TROUBLE;
+  }
+
+  const context = { out, err, read, write, options };
+
+  try {
+    switch (options.command) {
+      case 'diff': return runDiff(context);
+      case 'apply': return runApply(context);
+      case 'show': return runShow(context);
+      case 'merge': return runMerge(context);
+      case 'stat': return runStat(context);
+      default:
+        err(`unknown command '${options.command}' -- try --help`);
+        return Exit.TROUBLE;
+    }
+  } catch (error) {
+    if (error instanceof ParseError) {
+      err(error.format());
+      return Exit.TROUBLE;
+    }
+    if (error instanceof UsageError) {
+      err(error.message);
+      return Exit.TROUBLE;
+    }
+    if (error && error.code === 'ENOENT') {
+      err(`cannot read ${error.path}`);
+      return Exit.TROUBLE;
+    }
+    throw error;
+  }
+}
+
+/**
+ * Reads the arguments into an options object.
+ *
+ * @param {string[]} argv the arguments
+ * @returns {object} the parsed options
+ * @throws {UsageError} when a flag is unknown or missing its value
+ */
+export function parseArguments(argv) {
+  const options = {
+    command: argv[0],
+    files: [],
+    context: 3,
+    fuzz: 2,
+    ignoreWhitespace: false,
+    ignoreCase: false,
+    words: false,
+    git: false,
+    contextFormat: false,
+    reverse: false,
+    inline: false,
+    output: null,
+    dryRun: false,
+    diff3: false,
+  };
+
+  const value = (flag, at) => {
+    const next = argv[at + 1];
+    if (next === undefined) throw new UsageError(`${flag} needs a value`);
+    return next;
+  };
+
+  for (let at = 1; at < argv.length; at++) {
+    const argument = argv[at];
+
+    switch (argument) {
+      case '-c': case '--context': {
+        const given = Number(value(argument, at));
+        if (!Number.isInteger(given) || given < 0) {
+          throw new UsageError(
+            `--context needs a non-negative whole number, got '${argv[at + 1]}'`,
+          );
+        }
+        options.context = given;
+        at++;
+        break;
+      }
+      case '--fuzz': {
+        const given = Number(value(argument, at));
+        if (!Number.isInteger(given) || given < 0) {
+          throw new UsageError(`--fuzz needs a non-negative whole number, got '${argv[at + 1]}'`);
+        }
+        options.fuzz = given;
+        at++;
+        break;
+      }
+      case '-o': case '--output':
+        options.output = value(argument, at);
+        at++;
+        break;
+      case '-w': case '--ignore-space': options.ignoreWhitespace = true; break;
+      case '-i': case '--ignore-case': options.ignoreCase = true; break;
+      case '--words': options.words = true; break;
+      case '--git': options.git = true; break;
+      case '--context-format': options.contextFormat = true; break;
+      case '-R': case '--reverse': options.reverse = true; break;
+      case '--inline': options.inline = true; break;
+      case '--dry-run': options.dryRun = true; break;
+      case '--diff3': options.diff3 = true; break;
+      default:
+        if (argument.startsWith('-') && argument !== '-') {
+          throw new UsageError(`unknown option '${argument}' -- try --help`);
+        }
+        options.files.push(argument);
+    }
+  }
+
+  return options;
+}
