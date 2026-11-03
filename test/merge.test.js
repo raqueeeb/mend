@@ -196,3 +196,34 @@ test('a region is frozen', () => {
   const [region] = mergeLines(['a'], ['a'], ['a']);
   assert.throws(() => { region.conflict = true; }, TypeError);
 });
+
+test('conflict markers are detected in a merged file', () => {
+  // Useful as a commit-time check: a file with markers in it is a file
+  // nobody finished merging.
+  const conflicted = merge(
+    BASE,
+    L('one', 'OURS', 'three', 'four', 'five'),
+    L('one', 'THEIRS', 'three', 'four', 'five'),
+  );
+
+  assert.ok(hasConflictMarkers(conflicted.text));
+  assert.ok(!hasConflictMarkers(BASE));
+  assert.ok(!hasConflictMarkers(''));
+});
+
+test('something that is not text is a caller mistake', () => {
+  throwsWith(() => merge(null, 'a', 'b'), UsageError);
+  throwsWith(() => merge('a', 42, 'b'), UsageError);
+  throwsWith(() => hasConflictMarkers(null), UsageError);
+});
+
+// ---- similarity and inline diffs ---------------------------------------
+
+test('identical texts are perfectly similar', () => {
+  assert.equal(similarity(BASE, BASE), 1);
+  assert.equal(similarity('', ''), 1, 'including two empty ones');
+});
+
+test('texts with nothing in common are not similar at all', () => {
+  assert.equal(similarity(L('a', 'b'), L('x', 'y')), 0);
+});
