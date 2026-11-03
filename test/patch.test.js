@@ -87,3 +87,53 @@ test('a file that lacks a newline but is changed in the middle gets no marker', 
   assert.ok(!patch.includes(NO_NEWLINE));
   assert.equal(patch.match(/^@@/gm).length, 1);
 });
+
+test('adding a final newline is itself a difference', () => {
+  // The lines are identical, so the difference lives only in whether the
+  // file ended with a newline -- which is part of its content. `diff`
+  // reports it, and a tool that says "no changes" here would quietly lose a
+  // byte on the next round trip.
+  const added = patchOf(N('a'), L('a'));
+
+  assert.equal(added, `--- f.txt\n+++ f.txt\n@@ -1 +1 @@\n-a\n${NO_NEWLINE}\n+a\n`);
+  assert.ok(added.includes(`-a\n${NO_NEWLINE}`), 'the old side is marked');
+  assert.ok(!added.includes(`+a\n${NO_NEWLINE}`), 'the new side is not');
+});
+
+test('a git-style header names both paths', () => {
+  const patch = formatGitStyle(diffText(L('a'), L('b'), { oldPath: 'x.js', newPath: 'x.js' }));
+  assert.ok(patch.startsWith('diff --git a/x.js b/x.js\n'));
+  assert.match(patch, /^--- a\/x\.js$/m);
+  assert.match(patch, /^\+\+\+ b\/x\.js$/m);
+});
+
+test('a git-style header carries no index line', () => {
+  // It holds blob hashes this library does not compute, and a wrong hash is
+  // worse than an absent one.
+  const patch = formatGitStyle(diffText(L('a'), L('b')));
+  assert.ok(!patch.includes('index '));
+});
+
+test('a context diff writes each side in full', () => {
+  const patch = formatContext(diffText(L('a', 'b', 'c'), L('a', 'B', 'c'), {
+    oldPath: 'f', newPath: 'f',
+  }));
+
+  assert.match(patch, /^\*\*\* f$/m);
+  assert.match(patch, /^\*{15}$/m);
+  assert.match(patch, /^- b$/m);
+  assert.match(patch, /^\+ B$/m);
+});
+
+test('a stat line scales its bar only when it has to', () => {
+  const small = formatStat(diffText(L('a', 'b'), L('A', 'b'), { newPath: 'f' }));
+  assert.equal(small, 'f | 2 +-');
+
+  const large = diffText(
+    L(...Array.from({ length: 200 }, (_, index) => `${index}`)),
+    L(...Array.from({ length: 200 }, (_, index) => `x${index}`)),
+    { newPath: 'f' },
+  );
+  const bar = formatStat(large, { width: 10 }).split(' ').pop();
+  assert.ok(bar.length <= 11, `the bar is bounded, got ${bar.length}`);
+});
