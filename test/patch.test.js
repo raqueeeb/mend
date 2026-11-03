@@ -271,3 +271,38 @@ test('a parse error with no line still formats', () => {
   assert.equal(error.format(), 'something general');
   assert.equal(error.line, null);
 });
+
+// ---- reversing ----------------------------------------------------------
+
+test('reversing swaps every side', () => {
+  const diff = diffText(L('one', 'two'), L('one', 'TWO'), { oldPath: 'x', newPath: 'y' });
+  const back = reverse(diff);
+
+  assert.equal(back.oldPath, 'y');
+  assert.equal(back.newPath, 'x');
+  assert.equal(back.added, diff.removed);
+  assert.equal(back.removed, diff.added);
+  assert.equal(back.hunks[0].oldStart, diff.hunks[0].newStart);
+});
+
+test('reversing twice gives the original back', () => {
+  const diff = diffText(L('a', 'b', 'c'), L('a', 'B', 'c'), { oldPath: 'x', newPath: 'y' });
+  assert.equal(formatUnified(reverse(reverse(diff))), formatUnified(diff));
+});
+
+test('reversing swaps the newline facts too', () => {
+  // Missing this produces a patch that applies and then fails to round-trip,
+  // which is the sort of bug found much later.
+  const diff = diffText(N('a'), L('a', 'b'));
+  const back = reverse(diff);
+  assert.equal(back.oldEndsWithNewline, diff.newEndsWithNewline);
+  assert.equal(back.newEndsWithNewline, diff.oldEndsWithNewline);
+});
+
+test('createPatch is the one-call form', () => {
+  assert.equal(
+    createPatch(L('a'), L('b'), { oldPath: 'f.txt', newPath: 'f.txt' }),
+    patchOf(L('a'), L('b')),
+  );
+  assert.equal(createPatch(L('a'), L('a')), '');
+});
