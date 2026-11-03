@@ -290,3 +290,23 @@ function locate(lines, wanted, guess, search) {
 
   return null;
 }
+
+function matches(lines, wanted, at) {
+  if (at < 0 || at + wanted.length > lines.length) return false;
+  for (let index = 0; index < wanted.length; index++) {
+    if (lines[at + index] !== wanted[index]) return false;
+  }
+  return true;
+}
+
+/**
+ * Whether a diff would apply cleanly, without producing the result.
+ *
+ * @param {string} text the text to patch
+ * @param {object} diff the diff
+ * @param {object} [options] as for {@link applyPatch}
+ * @returns {boolean} true when every hunk applies
+ */
+export function canApply(text, diff, options = {}) {
+  return applyPatch(text, diff, options).ok;
+}
