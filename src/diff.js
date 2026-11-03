@@ -50,3 +50,44 @@ function comparisonKeys(tokens, trailing, options) {
   marked[marked.length - 1] += NO_NEWLINE_KEY;
   return marked;
 }
+
+/** One group of nearby changes, with its context. */
+export class Hunk {
+  /**
+   * @param {object} fields the hunk's parts
+   * @param {number} fields.oldStart the one-based first line in the old file
+   * @param {number} fields.oldLines how many old lines it covers
+   * @param {number} fields.newStart the one-based first line in the new file
+   * @param {number} fields.newLines how many new lines it covers
+   * @param {object[]} fields.changes the lines, each with an operation
+   */
+  constructor(fields) {
+    this.oldStart = fields.oldStart;
+    this.oldLines = fields.oldLines;
+    this.newStart = fields.newStart;
+    this.newLines = fields.newLines;
+    this.changes = fields.changes;
+    Object.freeze(this);
+  }
+
+  /** The `@@ -a,b +c,d @@` header, without a trailing newline. */
+  get header() {
+    return `@@ -${range(this.oldStart, this.oldLines)} +${range(this.newStart, this.newLines)} @@`;
+  }
+
+  /** How many lines in this hunk are changes rather than context. */
+  get changedLines() {
+    return this.changes.filter((change) => change.operation !== Operation.EQUAL).length;
+  }
+
+  toString() {
+    return this.header;
+  }
+}
+
+function range(start, count) {
+  // A zero-length range is written with the line *before* it, which is how
+  // every unified diff in the world does it and is why a pure insertion
+  // reads as `-0,0` only when the file was empty.
+  return count === 1 ? String(start) : `${start},${count}`;
+}
