@@ -155,3 +155,72 @@ export function applyPatch(text, diff, options = {}) {
     hunks: results,
   });
 }
+
+/**
+ * Whether the result should end with a newline.
+ *
+ * The patch knows what the new file looked like, so it wins; the original
+ * text only decides when the patch says nothing.
+ *
+ * @param {object} diff the diff
+ * @param {boolean} fallback what the original did
+ * @returns {boolean} true to end with a newline
+ */
+function endsWith(diff, fallback) {
+  return diff.newEndsWithNewline ?? fallback;
+}
+
+/**
+ * Applies one hunk, searching for where it fits.
+ *
+ * @param {string[]} lines the current lines
+ * @param {object} hunk the hunk
+ * @param {object} options fuzz, search distance and accumulated drift
+ * @returns {object} the outcome, with the new lines when it applied
+ */
+function applyHunk(lines, hunk, options) {
+  const wanted = hunk.changes.filter((change) => change.operation !== Operation.INSERT);
+  const expected = wanted.map((change) => change.text);
+
+  // A hunk that only inserts has nothing to match, so its stated position is
+  // all there is to go on.
+  const target = Math.max(0, hunk.oldStart - 1 + options.drift);
+
+  for (let fuzz = 0; fuzz <= options.fuzz; fuzz++) {
+    const trimmed = trimContext(hunk, fuzz);
+    if (trimmed === null) continue;
+
+    const probe = trimmed.changes
+      .filter((change) => change.operation !== Operation.INSERT)
+      .map((change) => change.text);
+
+    const found = locate(lines, probe, target + trimmed.leadingDropped, options.search);
+    if (found === null) continue;
+
+    const at = found - trimmed.leadingDropped;
+    const replacement = trimmed.changes
+      .filter((change) => change.operation !== Operation.DELETE)
+      .map((change) => change.text);
+
+    const before = lines.slice(0, found);
+    const after = lines.slice(found + probe.length);
+
+    return {
+      applied: true,
+      lines: [...before, ...replacement, ...after],
+      at: Math.max(0, at),
+      offset: found - trimmed.leadingDropped - target,
+      fuzz,
+      added: replacement.length,
+      removed: probe.length,
+    };
+  }
+
+  const first = expected[0] ?? '(nothing to match)';
+  const actually = lines[target] ?? '(past the end of the file)';
+  return {
+    applied: false,
+    reason: `expected ${JSON.stringify(first)} at or near line ${target + 1}, `
+      + `found ${JSON.stringify(actually)}`,
+  };
+}
