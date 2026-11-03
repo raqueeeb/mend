@@ -105,3 +105,24 @@ function blank(oldPath, newPath) {
     newEndsWithNewline: true,
   };
 }
+
+function finish(pending) {
+  const last = pending.hunks[pending.hunks.length - 1];
+
+  return new Diff({
+    // A patch says nothing about how long the files are, only where its
+    // hunks sit. Taking the end of the last hunk as the end of the file is
+    // right for the only thing the totals are used for: deciding that the
+    // no-newline markers this patch already carries belong where they are.
+    oldTotal: last ? last.oldStart + last.oldLines - 1 : 0,
+    newTotal: last ? last.newStart + last.newLines - 1 : 0,
+    hunks: pending.hunks,
+    oldPath: pending.oldPath,
+    newPath: pending.newPath,
+    oldEndsWithNewline: pending.oldEndsWithNewline,
+    newEndsWithNewline: pending.newEndsWithNewline,
+    crlf: false,
+    minimal: true,
+    distance: pending.hunks.reduce((total, hunk) => total + hunk.changedLines, 0),
+  });
+}
