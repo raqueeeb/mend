@@ -227,3 +227,35 @@ test('identical texts are perfectly similar', () => {
 test('texts with nothing in common are not similar at all', () => {
   assert.equal(similarity(L('a', 'b'), L('x', 'y')), 0);
 });
+
+test('similarity is the ratio rename detection is tuned against', () => {
+  // Twice the common subsequence over the total length.
+  assert.equal(similarity(L('a', 'b', 'c'), L('a', 'b', 'd')), (2 * 2) / 6);
+});
+
+test('a mostly-unchanged file counts as a rename', () => {
+  const before = L(...Array.from({ length: 20 }, (_, index) => `line ${index}`));
+  const after = before.replace('line 0', 'changed');
+
+  assert.ok(isRename(before, after));
+  assert.ok(!isRename(before, L('nothing', 'alike')));
+  assert.ok(!isRename(before, after, 1.01), 'and the threshold is honoured');
+});
+
+test('similarity can be measured by word or character', () => {
+  assert.ok(similarity('the cat', 'the hat', { granularity: 'word' }) > 0.5);
+  assert.ok(similarity('cat', 'cut', { granularity: 'character' }) > 0.5);
+});
+
+test('an inline diff shows which words in a line changed', () => {
+  const edits = inlineDiff('the quick brown fox', 'the quick red fox');
+  assert.equal(render(edits), ' the quick |-brown|+red|  fox');
+});
+
+test('marking an inline diff marks each side with only its own changes', () => {
+  // Showing both sets on both lines makes each line unreadable as a line.
+  const marked = markInline('the quick brown fox', 'the slow brown fox');
+
+  assert.equal(marked.before, 'the [quick] brown fox');
+  assert.equal(marked.after, 'the [slow] brown fox');
+});
