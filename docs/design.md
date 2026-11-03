@@ -65,3 +65,44 @@ asking, at each distance, which diagonal the current point must have come
 from. The alternative — the linear-space divide-and-conquer refinement from
 the same paper — halves the memory and roughly doubles the constant factor,
 and the memory was never the problem here.
+
+## The ceiling
+
+Myers is O((N+M)D) and D can be as large as N+M, so the worst case is
+quadratic. Two files with nothing in common hit it exactly, and that case is
+not hypothetical: it is what happens when someone diffs the wrong pair of
+files.
+
+A diff tool that hangs is worse than one that says "these are different". So
+the search gives up past `MAX_EDIT_DISTANCE` and returns the honest fallback —
+the whole middle was replaced — with `minimal: false` on the result so the
+caller knows the answer is correct but not shortest.
+
+```
+2,000 lines, nothing in common              491.312 ms
+the same, capped at distance 50               1.398 ms
+```
+
+## Runs, not individual edits
+
+The algorithm naturally produces one edit per token. Everything downstream —
+hunk grouping, patch output, apply — works in *runs* of the same operation,
+so the runs are built here and nobody downstream has to coalesce. An `Edit`
+carries its operation, its tokens, and where it starts in both sequences.
+
+An `EQUAL` run takes its text from the **first** sequence. That is invisible
+until whitespace or case folding is in play, at which point two tokens can
+compare equal without being equal, and the question of which one to show
+becomes real. The first sequence's version is what `diff` shows.
+
+## Hunk grouping
+
+A patch wants something coarser than one run per change: changes near each
+other belong in the same hunk, with a few unchanged lines either side so the
+hunk can be located again later.
+
+The rule for "near each other" is the one every diff tool uses and none
+explains: two changes share a hunk when the gap between them is at most
+**twice** the context size. Twice, because at exactly that gap the trailing
+context of the first change and the leading context of the second meet, and
+splitting there would print the same lines in both hunks.
