@@ -63,3 +63,49 @@ test('--version prints the version alone', () => {
   assert.equal(result.code, Exit.SAME);
   assert.match(result.out, /^\d+\.\d+\.\d+$/);
 });
+
+test('an unknown command is reported', () => {
+  const result = run(['frobnicate', 'a', 'b'], FILES);
+  assert.equal(result.code, Exit.TROUBLE);
+  assert.match(result.err, /unknown command 'frobnicate'/);
+});
+
+// ---- diff ---------------------------------------------------------------
+
+test('diff writes a unified patch and exits one', () => {
+  // One means "there were differences", as diff has always meant. A script
+  // that treats it as failure is wrong about diff too.
+  const result = run(['diff', 'old.txt', 'new.txt'], FILES);
+
+  assert.equal(result.code, Exit.DIFFERENT);
+  assert.match(result.out, /^--- old\.txt$/m);
+  assert.match(result.out, /^\+\+\+ new\.txt$/m);
+  assert.match(result.out, /^-two$/m);
+  assert.match(result.out, /^\+TWO$/m);
+});
+
+test('diff on identical files writes nothing and exits zero', () => {
+  const result = run(['diff', 'old.txt', 'base.txt'], FILES);
+  assert.equal(result.code, Exit.SAME);
+  assert.equal(result.out, '');
+});
+
+test('diff honours the context size', () => {
+  const files = {
+    'a.txt': L('1', '2', '3', '4', '5', '6', '7'),
+    'b.txt': L('1', '2', '3', 'X', '5', '6', '7'),
+  };
+
+  const tight = run(['diff', 'a.txt', 'b.txt', '-c', '0'], files);
+  assert.match(tight.out, /@@ -4 \+4 @@/);
+
+  const loose = run(['diff', 'a.txt', 'b.txt', '--context', '1'], files);
+  assert.match(loose.out, /@@ -3,3 \+3,3 @@/);
+});
+
+test('diff can ignore whitespace and case', () => {
+  const files = { 'a.txt': L('Hello  world'), 'b.txt': L('hello world') };
+
+  assert.equal(run(['diff', 'a.txt', 'b.txt'], files).code, Exit.DIFFERENT);
+  assert.equal(run(['diff', 'a.txt', 'b.txt', '-w', '-i'], files).code, Exit.SAME);
+});
