@@ -200,3 +200,9 @@ export function parseArguments(argv) {
 
   return options;
 }
+
+function expect(options, count, shape) {
+  if (options.files.length !== count) {
+    throw new UsageError(`${options.command} takes ${shape}`);
+  }
+}
