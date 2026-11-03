@@ -259,3 +259,35 @@ test('marking an inline diff marks each side with only its own changes', () => {
   assert.equal(marked.before, 'the [quick] brown fox');
   assert.equal(marked.after, 'the [slow] brown fox');
 });
+
+test('the inline markers are configurable', () => {
+  const marked = markInline('a b', 'a c', { open: '<<', close: '>>' });
+  assert.equal(marked.after, 'a <<c>>');
+});
+
+test('two identical lines mark nothing', () => {
+  const marked = markInline('same', 'same');
+  assert.equal(marked.before, 'same');
+  assert.equal(marked.after, 'same');
+});
+
+test('pairing matches removed lines with the added ones that replaced them', () => {
+  const diff = diffText(L('a', 'b', 'c'), L('a', 'B', 'c'));
+  const pairs = pairChanges(diff.hunks[0]);
+
+  assert.equal(pairs.length, 1);
+  assert.deepEqual(pairs[0], { before: 'b', after: 'B' });
+});
+
+test('pairing declines to guess when the counts differ', () => {
+  // Guessing which of five removed lines became which of two added ones
+  // produces worse output than not guessing.
+  const diff = diffText(L('a', 'b', 'c', 'd'), L('a', 'X', 'd'));
+  assert.deepEqual(pairChanges(diff.hunks[0]), []);
+});
+
+test('pairing a hunk with no replacements finds nothing', () => {
+  const diff = diffText(L('a', 'c'), L('a', 'b', 'c'));
+  assert.deepEqual(pairChanges(diff.hunks[0]), []);
+  assert.deepEqual(pairChanges({}), []);
+});
