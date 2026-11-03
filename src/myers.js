@@ -301,3 +301,21 @@ function deletion(oldFrom, newAt, oldTo) {
     newTo: newAt,
   };
 }
+
+/**
+ * The length of the longest common subsequence.
+ *
+ * Derived from the edit script rather than computed separately: the two are
+ * the same information, and keeping one implementation means they cannot
+ * disagree.
+ *
+ * @param {string[]} before the first sequence
+ * @param {string[]} after the second
+ * @returns {number} how many tokens are common, in order
+ */
+export function commonLength(before, after) {
+  const { edits } = diffSequences(before, after);
+  return edits
+    .filter((edit) => edit.isEqual)
+    .reduce((total, edit) => total + edit.length, 0);
+}
