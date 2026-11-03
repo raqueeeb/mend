@@ -106,3 +106,38 @@ explains: two changes share a hunk when the gap between them is at most
 **twice** the context size. Twice, because at exactly that gap the trailing
 context of the first change and the leading context of the second meet, and
 splitting there would print the same lines in both hunks.
+
+## Errors: thrown or returned
+
+The decision that shapes every signature.
+
+A patch that **will not parse** is a problem with the input, and the only
+useful response is to say which line and why. That throws `ParseError`.
+
+A patch that parses but **will not apply** is not broken at all — it simply
+does not match the file in front of it, which is ordinary and expected. That
+returns an `ApplyResult` carrying which hunks applied, at what offset, with
+how much fuzz, and for the ones that failed, what was expected and what was
+there instead.
+
+A caller passing a number where text belongs throws `UsageError`, because
+there is nothing to report a result about.
+
+## Applying a patch
+
+The stated line number is a hint. Two mechanisms, both standard, and the
+second is the one people get wrong.
+
+**Offset search** looks outwards from the stated position — 41, 39, 42, 38 —
+for a place where all of the hunk's old lines match. Outwards rather than
+forwards because a patch is as likely to have moved up as down, and the
+nearest match is the one most likely to be right.
+
+**Fuzz** drops a line of context from each end and searches again. Context
+exists to locate the hunk, not to be applied, so a context line that no
+longer matches is often harmless. Fuzz never drops a line the hunk
+*changes*, and refuses a hunk that is all context — dropping those would
+change the result rather than where it lands.
+
+Each applied hunk shifts the lines after it, so the next hunk's stated
+position is corrected by the drift accumulated so far.
