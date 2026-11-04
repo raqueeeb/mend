@@ -1,5 +1,7 @@
 # mend
 
+> 📘 **Case study:** [raqueeb.dev/projects/mend](https://raqueeb.dev/projects/mend) — architecture, stack and implementation notes.
+
 A diff and patch engine, in JavaScript, with no dependencies.
 
 Compare two texts, write the difference as a unified patch, read one back,
